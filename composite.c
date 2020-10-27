@@ -188,7 +188,7 @@ static usb_status_t USB_DeviceCallback(usb_device_handle handle, uint32_t event,
 }
 
 
-int composite_init(void)
+usb_cdc_vcom_struct_t *composite_init()
 {
     if (USB_DeviceClockInit() != kStatus_USB_Success) {
         LOG_ERROR("[Composite] USB Device Clock init failed");
@@ -203,7 +203,7 @@ int composite_init(void)
         USB_DeviceClassInit(CONTROLLER_ID, &g_UsbDeviceCompositeConfigList, &composite.deviceHandle))
     {
         LOG_ERROR("[Composite] USB Device init failed");
-        return -1;
+        return NULL;
     }
     else
     {
@@ -215,8 +215,6 @@ int composite_init(void)
             LOG_ERROR("[Composite] MTP initialization failed");
     }
 
-    VirtualComDemoInit(&composite.cdcVcom);
-
     USB_DeviceIsrEnable();
 
     if (USB_DeviceRun(composite.deviceHandle) != kStatus_USB_Success) {
@@ -224,6 +222,6 @@ int composite_init(void)
     }
 
     LOG_DEBUG("[Composite] USB initialized");
-    return 0;
+    return &composite.cdcVcom;
 
 }

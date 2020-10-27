@@ -4,7 +4,7 @@
  * Proprietary and confidential
  */
 
-#include "usb.hpp"
+#include "bsp/usb/usb.hpp"
 
 extern "C"
 {
@@ -23,7 +23,7 @@ extern "C"
 namespace bsp
 {
 
-    int usbInit(xQueueHandle)
+    usb_cdc_vcom_struct_t *usbInit(xQueueHandle)
     {
         return composite_init();
     }
@@ -38,3 +38,5 @@ namespace bsp
     }
 
 }
+
+

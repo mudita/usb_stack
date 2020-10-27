@@ -160,7 +160,7 @@
 #endif
 
 #ifndef USB_DEVICE_PRODUCT_ID
-#   define USB_DEVICE_PRODUCT_ID (0x0622)
+#   define USB_DEVICE_PRODUCT_ID (0x0100)
 #endif
 
 #endif /* _USB_DEVICE_CONFIG_H_ */
