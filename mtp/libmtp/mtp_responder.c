@@ -868,6 +868,7 @@ size_t mtp_responder_get_data(mtp_responder_t *mtp)
         {
             mtp->storage.api->close(mtp->storage.api_arg);
             mtp->transaction.file_open = false;
+            log_info("DT total>: 0x%x", mtp->transaction.sent);
         }
     }
     return cntr_length;
