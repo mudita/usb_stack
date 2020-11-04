@@ -203,7 +203,7 @@ usb_cdc_vcom_struct_t *composite_init(void)
         USB_DeviceClassInit(CONTROLLER_ID, &g_UsbDeviceCompositeConfigList, &composite.deviceHandle))
     {
         LOG_ERROR("[Composite] USB Device init failed");
-        return -1;
+        return NULL;
     }
     else
     {
@@ -215,8 +215,6 @@ usb_cdc_vcom_struct_t *composite_init(void)
             LOG_ERROR("[Composite] MTP initialization failed");
     }
 
-    VirtualComDemoInit(&composite.cdcVcom);
-
     USB_DeviceIsrEnable();
 
     if (USB_DeviceRun(composite.deviceHandle) != kStatus_USB_Success) {
@@ -224,6 +222,5 @@ usb_cdc_vcom_struct_t *composite_init(void)
     }
 
     LOG_DEBUG("[Composite] USB initialized");
-    return &composite.cdcVcomHandle;
-
+    return &composite.cdcVcom;
 }
