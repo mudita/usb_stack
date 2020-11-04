@@ -23,7 +23,7 @@ extern "C"
 namespace bsp
 {
 
-    int usbInit(xQueueHandle)
+    void *usbInit(xQueueHandle)
     {
         return composite_init();
     }
