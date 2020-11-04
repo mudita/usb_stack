@@ -286,8 +286,8 @@ static void MtpTask(void *handle)
                         break;
                     }
 
-                    int retries = 5;
-                    uint32_t timeout_ms = 5;
+                    int retries = 30;
+                    uint32_t timeout_ms = 1;
                     while((send_status = ScheduleSend(mtpApp, response, result_len)) == kStatus_USB_Busy
                             && --retries
                             && xMessageBufferIsEmpty(mtpApp->outputBox)
