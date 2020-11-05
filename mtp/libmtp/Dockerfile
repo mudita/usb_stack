@@ -1,5 +1,6 @@
-# c-template project (https://gitlab.com/arturmadrzak/c-template)
-# Copyright (c) 2020 Artur Mądrzak <artur@madrzak.eu>
+# Copyright  Onplick <info@onplick.com> - All Rights Reserved
+# Unauthorized copying of this file, via any medium is strictly prohibited
+# Proprietary and confidential
 
 FROM  gcc
 

@@ -1,3 +1,8 @@
+/*
+ * Copyright  Onplick <info@onplick.com> - All Rights Reserved
+ * Unauthorized copying of this file, via any medium is strictly prohibited
+ * Proprietary and confidential
+ */
 #include "FreeRTOS.h"
 #include <string.h>
 #include <assert.h>

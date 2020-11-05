@@ -1,3 +1,8 @@
+/*
+ * Copyright  Onplick <info@onplick.com> - All Rights Reserved
+ * Unauthorized copying of this file, via any medium is strictly prohibited
+ * Proprietary and confidential
+ */
 #include <assert.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -863,6 +868,7 @@ size_t mtp_responder_get_data(mtp_responder_t *mtp)
         {
             mtp->storage.api->close(mtp->storage.api_arg);
             mtp->transaction.file_open = false;
+            log_info("DT total>: 0x%x", mtp->transaction.sent);
         }
     }
     return cntr_length;

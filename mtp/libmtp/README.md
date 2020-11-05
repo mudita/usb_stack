@@ -1,5 +1,3 @@
-[![pipeline status](https://gitlab.com/arturmadrzak/libmtp/badges/master/pipeline.svg)](https://gitlab.com/arturmadrzak/libmtp/commits/master)
-
 # libmtp - Media Transfer Protocol responder implementation
 
 ## requirements

@@ -1,3 +1,8 @@
+/*
+ * Copyright  Onplick <info@onplick.com> - All Rights Reserved
+ * Unauthorized copying of this file, via any medium is strictly prohibited
+ * Proprietary and confidential
+ */
 #ifndef _USB_DEVICE_COMPOSITE_H_
 #define _USB_DEVICE_COMPOSITE_H_
 

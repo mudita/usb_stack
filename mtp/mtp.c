@@ -1,3 +1,8 @@
+/*
+ * Copyright  Onplick <info@onplick.com> - All Rights Reserved
+ * Unauthorized copying of this file, via any medium is strictly prohibited
+ * Proprietary and confidential
+ */
 #include "usb_device_config.h"
 #include "usb.h"
 #include "usb_phy.h"
@@ -56,10 +61,7 @@ static usb_status_t ScheduleSend(usb_mtp_struct_t *mtpApp, void *buffer, size_t 
     int is_busy = USB_DeviceClassMtpIsBusy(mtpApp->classHandle, USB_MTP_BULK_IN_ENDPOINT);
     if (!is_busy) {
         memcpy(tx_buffer, buffer, length);
-        if ((error = USB_DeviceClassMtpSend(mtpApp->classHandle, USB_MTP_BULK_IN_ENDPOINT, tx_buffer, length)) != kStatus_USB_Success) {
-            PRINTF("[MTP] Error: Schedule TX failed. 0x%x\n", error);
-        }
-
+        error = USB_DeviceClassMtpSend(mtpApp->classHandle, USB_MTP_BULK_IN_ENDPOINT, tx_buffer, length);
     } else {
         if (xMessageBufferSend(mtpApp->outputBox, buffer, length, 0) != length) {
             error = kStatus_USB_Busy;
@@ -68,6 +70,11 @@ static usb_status_t ScheduleSend(usb_mtp_struct_t *mtpApp, void *buffer, size_t 
         }
     }
     taskEXIT_CRITICAL();
+    if (error == kStatus_USB_Busy) {
+        PRINTF("[MTP] Outgoing queue full, waiting a bit\n");
+    } else if (error) {
+        PRINTF("[MTP] ScheduleSend error: 0x%x\n", error);
+    }
 
     return error;
 }
@@ -104,20 +111,10 @@ static usb_status_t OnOutgoingFrameSent(usb_mtp_struct_t* mtpApp, void *param)
 {
     usb_device_endpoint_callback_message_struct_t *epCbParam = (usb_device_endpoint_callback_message_struct_t*) param;
 
-    if (xMessageBufferIsEmpty(mtpApp->outputBox) != pdTRUE) {
-        size_t length = xMessageBufferReceiveFromISR(mtpApp->outputBox, tx_buffer, sizeof(tx_buffer), NULL);
-        if (!length) {
-            PRINTF("[MTP] Outgoing bytes can't be popped out:\n");
-            return kStatus_USB_Error;
-        }
-        if (USB_DeviceClassMtpSend(mtpApp->classHandle, USB_MTP_BULK_IN_ENDPOINT, tx_buffer, length) != kStatus_USB_Success) {
-            PRINTF("[MTP] Dropped outgoing bytes: %u:\n", length);
-            return kStatus_USB_Error;
-        }
-
-        //PRINTF("[MTP] TX sent: %u\n", length);
-    } else {
-        //PRINTF("[MTP] TX: Last packet sent (size: %u)\n", epCbParam->length);
+    size_t length = xMessageBufferReceiveFromISR(mtpApp->outputBox, tx_buffer, sizeof(tx_buffer), NULL);
+    if (length && USB_DeviceClassMtpSend(mtpApp->classHandle, USB_MTP_BULK_IN_ENDPOINT, tx_buffer, length) != kStatus_USB_Success) {
+        PRINTF("[MTP] Dropped outgoing bytes: 0x%d:\n", (int)length);
+        return kStatus_USB_Error;
     }
 
     return kStatus_USB_Success;
@@ -290,7 +287,6 @@ static void MtpTask(void *handle)
                     uint32_t timeout_ms = 1;
                     while((send_status = ScheduleSend(mtpApp, response, result_len)) == kStatus_USB_Busy
                             && --retries
-                            && xMessageBufferIsEmpty(mtpApp->outputBox)
                             && !mtpApp->in_reset)
                     {
                         vTaskDelay(timeout_ms/portTICK_PERIOD_MS);
