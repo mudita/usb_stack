@@ -4,6 +4,13 @@ extern "C"
 {
 #include "FreeRTOS.h"
 #include "task.h"
+#include "usb.h"
+#include "usb_device.h"
+#include "usb_device_class.h"
+#include "usb_device_cdc_acm.h"
+#include "usb_device_ch9.h"
+#include "usb_device_descriptor.h"
+#include "composite.h"
 #include <queue.h>
 }
 
@@ -13,10 +20,13 @@ extern "C"
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <module-bsp/bsp/usb/usb.hpp>
+
 
 namespace bsp
 {
-    void *usbInit(xQueueHandle);
-    void usbCDCReceive(void *ptr);
+    int usbInit(xQueueHandle queueHandle, USBDeviceListener *deviceListener);
+    int usbCDCReceive(void *buffer);
     int usbCDCSend(std::string *sendMsg);
+    void usbDeviceTask(void *);
 } // namespace bsp
