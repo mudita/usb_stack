@@ -125,7 +125,7 @@ static usb_status_t OnSendCompleted(usb_cdc_vcom_struct_t *cdcVcom,
 static usb_status_t OnRecvCompleted(usb_cdc_vcom_struct_t *cdcVcom,
         usb_device_endpoint_callback_message_struct_t *param)
 {
-    usb_status_t error = kStatus_USB_Error;
+    usb_status_t error = kStatus_USB_Success;
     if (cdcVcom->startTransactions)
     {
         if (param->length) {

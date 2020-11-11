@@ -90,13 +90,15 @@ static usb_status_t OnIncomingFrame(usb_mtp_struct_t* mtpApp, void *param)
     usb_device_endpoint_callback_message_struct_t *epCbParam = (usb_device_endpoint_callback_message_struct_t*) param;
 
     if (mtpApp->configured) {
-        if (epCbParam->length > 0) {
+        if (epCbParam->length == 0xFFFFFFFF) {
+            PRINTF("[MTP] RX Invalid length\n");
+        } else if (epCbParam->length > 0) {
             if (xMessageBufferSendFromISR(mtpApp->inputBox, epCbParam->buffer, epCbParam->length, NULL) != epCbParam->length) {
                 PRINTF("[MTP] RX dropped incoming bytes: %u\n", (unsigned int)epCbParam->length);
             }
             //PRINTF("[MTP] RX [%u]: %u\n", xTaskGetTickCount(), epCbParam->length);
         } else {
-            PRINTF("[MTP] RX Zero-length\n");
+            PRINTF("[MTP] RX Zero length frame\n");
         }
     } else {
         PRINTF("[MTP] RX Unconfigured app\n");
