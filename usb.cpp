@@ -81,8 +81,20 @@ namespace bsp
         return VirtualComRecv(cdcVcomStruct, buffer, SERIAL_BUFFER_LEN);
     }
 
-    int usbCDCSend(std::string *sendMsg)
+    int usbCDCSend(std::string *message)
     {
-        return VirtualComSend(cdcVcomStruct, sendMsg->c_str(), sendMsg->length());
+        uint32_t dataSent = 0;
+        const char *dataPtr = (*message).c_str();
+        do {
+            uint32_t len =  VirtualComSend(cdcVcomStruct, dataPtr + dataSent, message->length() - dataSent);
+            LOG_DEBUG("handleMessage sent: %" PRIu32 " len: %" PRIu32 " bytes of %d", dataSent, len, message->length());
+            if (!len) {
+                vTaskDelay(1 / portTICK_PERIOD_MS);
+                continue;
+            }
+            dataSent += len;
+        } while(dataSent < message->length());
+
+        return dataSent;
     }
 }
