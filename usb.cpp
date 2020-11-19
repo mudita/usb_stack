@@ -3,7 +3,7 @@
  * Unauthorized copying of this file, via any medium is strictly prohibited
  * Proprietary and confidential
  */
-
+#include <mutex.hpp>
 #include "usb.hpp"
 
 extern "C"
@@ -25,6 +25,8 @@ namespace bsp
     usb_cdc_vcom_struct_t *cdcVcomStruct = nullptr;
     TaskHandle_t usbTaskHandle = NULL;
     xQueueHandle USBReceiveQueue;
+    static cpp_freertos::MutexStandard mutex;
+
     char usbSerialBuffer[SERIAL_BUFFER_LEN];
 
     int usbInit(xQueueHandle queueHandle, USBDeviceListener *deviceListener)
@@ -60,6 +62,7 @@ namespace bsp
 
             if (dataReceivedLength > 0) {
                 if (deviceListener->getRawMode()) {
+                    cpp_freertos::LockGuard lock(mutex);
                     deviceListener->rawDataReceived(&usbSerialBuffer, dataReceivedLength);
                 }
                 else if (uxQueueSpacesAvailable(USBReceiveQueue) != 0) {
