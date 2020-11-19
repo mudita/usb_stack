@@ -39,13 +39,13 @@ namespace bsp
             LOG_DEBUG("init created device task");
         } else {
             LOG_DEBUG("init can't create device task");
-            return 0;
+            return -1;
         }
 
         USBReceiveQueue = queueHandle;
         cdcVcomStruct = composite_init();
 
-        return (cdcVcomStruct == NULL) ? 0 : 1;
+        return (cdcVcomStruct == NULL) ? -1 : 0;
     }
 
     void usbDeviceTask(void *handle)
@@ -87,7 +87,6 @@ namespace bsp
         const char *dataPtr = (*message).c_str();
         do {
             uint32_t len =  VirtualComSend(cdcVcomStruct, dataPtr + dataSent, message->length() - dataSent);
-            LOG_DEBUG("handleMessage sent: %" PRIu32 " len: %" PRIu32 " bytes of %d", dataSent, len, message->length());
             if (!len) {
                 vTaskDelay(1 / portTICK_PERIOD_MS);
                 continue;
