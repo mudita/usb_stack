@@ -22,8 +22,7 @@ inline int put_32(uint8_t *buffer, uint32_t value)
 
 inline int put_64(uint8_t *buffer, uint64_t value)
 {
-    *(uint32_t*)buffer = value;
-    *(uint32_t*)(buffer+4) = (uint32_t)(value>>32);
+    memcpy(buffer,&value,sizeof(uint64_t));
     return sizeof(uint64_t);
 }
 
