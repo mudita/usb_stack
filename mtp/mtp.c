@@ -17,7 +17,7 @@
 #include "mtp_responder.h"
 #include "mtp_fs.h"
 
-#define PRINTF(...)
+#define PRINTF LOG_DEBUG
 
 USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE) uint8_t rx_buffer[512];
 USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE) uint8_t tx_buffer[512];
@@ -71,9 +71,9 @@ static usb_status_t ScheduleSend(usb_mtp_struct_t *mtpApp, void *buffer, size_t 
     }
     taskEXIT_CRITICAL();
     if (error == kStatus_USB_Busy) {
-        PRINTF("[MTP] Outgoing queue full, waiting a bit\n");
+        PRINTF("[MTP] Outgoing queue full, waiting a bit");
     } else if (error) {
-        PRINTF("[MTP] ScheduleSend error: 0x%x\n", error);
+        PRINTF("[MTP] ScheduleSend error: 0x%x", error);
     }
 
     return error;
@@ -91,20 +91,21 @@ static usb_status_t OnIncomingFrame(usb_mtp_struct_t* mtpApp, void *param)
 
     if (mtpApp->configured) {
         if (epCbParam->length == 0xFFFFFFFF) {
-            PRINTF("[MTP] RX Invalid length\n");
+            PRINTF("[MTP] Rx notification from controller: 0x%x - configured",
+                    (unsigned int)epCbParam->length);
         } else if (epCbParam->length > 0) {
             if (xMessageBufferSendFromISR(mtpApp->inputBox, epCbParam->buffer, epCbParam->length, NULL) != epCbParam->length) {
-                PRINTF("[MTP] RX dropped incoming bytes: %u\n", (unsigned int)epCbParam->length);
+                PRINTF("[MTP] RX dropped incoming bytes: %u",
+                        (unsigned int)epCbParam->length);
             }
-            //PRINTF("[MTP] RX [%u]: %u\n", xTaskGetTickCount(), epCbParam->length);
         } else {
-            PRINTF("[MTP] RX Zero length frame\n");
+            PRINTF("[MTP] RX Zero length frame");
         }
-    } else {
-        PRINTF("[MTP] RX Unconfigured app\n");
-    }
 
-    RescheduleRecv(mtpApp);
+        RescheduleRecv(mtpApp);
+    } else {
+        PRINTF("[MTP] Rx notification from controller - not configured");
+    }
 
     return kStatus_USB_Success;
 }
@@ -113,10 +114,14 @@ static usb_status_t OnOutgoingFrameSent(usb_mtp_struct_t* mtpApp, void *param)
 {
     usb_device_endpoint_callback_message_struct_t *epCbParam = (usb_device_endpoint_callback_message_struct_t*) param;
 
-    size_t length = xMessageBufferReceiveFromISR(mtpApp->outputBox, tx_buffer, sizeof(tx_buffer), NULL);
-    if (length && USB_DeviceClassMtpSend(mtpApp->classHandle, USB_MTP_BULK_IN_ENDPOINT, tx_buffer, length) != kStatus_USB_Success) {
-        PRINTF("[MTP] Dropped outgoing bytes: 0x%d:\n", (int)length);
-        return kStatus_USB_Error;
+    if (mtpApp->configured) {
+        size_t length = xMessageBufferReceiveFromISR(mtpApp->outputBox, tx_buffer, sizeof(tx_buffer), NULL);
+        if (length && USB_DeviceClassMtpSend(mtpApp->classHandle, USB_MTP_BULK_IN_ENDPOINT, tx_buffer, length) != kStatus_USB_Success) {
+            PRINTF("[MTP] Dropped outgoing bytes: 0x%d:", (int)length);
+            return kStatus_USB_Error;
+        }
+    } else {
+        PRINTF("[MTP] Tx notification from controller - not configured");
     }
 
     return kStatus_USB_Success;
@@ -140,7 +145,7 @@ static usb_status_t OnGetStatus(usb_mtp_struct_t *mtpApp, void *param)
     *(uint16_t*)&event_response[2] = status;
     request->buffer = event_response;
     request->length = 4;
-    printf("[MTP APP] Control Device Status Response: 0x%04x\n", status);
+    PRINTF("[MTP] Control Device Status Response: 0x%04x", status);
     return kStatus_USB_Success;
 }
 
@@ -166,7 +171,7 @@ usb_status_t MtpUSBCallback(uint32_t event, void *param, void *userArg)
             error = OnGetStatus(mtpApp, param);
             break;
         default:
-            PRINTF("[MTP APP] Unknown event from device class driver: %d\n", (int)event);
+            PRINTF("[MTP] Unknown event from device class driver: %d", (int)event);
     }
 
     return error;
@@ -183,7 +188,7 @@ static void send_response(usb_mtp_struct_t *mtpApp, uint16_t status)
     while((send_status = ScheduleSend(mtpApp, response, result_len)) == kStatus_USB_Busy && --retries)
         vTaskDelay(50/portTICK_PERIOD_MS);
     if (send_status != kStatus_USB_Success) {
-        PRINTF("[MTP APP]: Transfer failed: 0x%x\n", send_status);
+        PRINTF("[MTP]: Transfer failed: 0x%x", send_status);
     }
 }
 
@@ -203,7 +208,7 @@ static void MtpTask(void *handle)
     mtp_responder_t* responder;
 
     if (!(mtpApp->mtp_fs = mtp_fs_alloc(NULL))) {
-        PRINTF("[MTP APP]: MTP FS initialization failed!\n");
+        PRINTF("[MTP]: MTP FS initialization failed!");
         return;
     }
 
@@ -217,9 +222,11 @@ static void MtpTask(void *handle)
             mtpApp->mtp_fs);
     responder = mtpApp->responder;
 
-    PRINTF("[MTP APP] Initialized.\n");
+    PRINTF("[MTP] Initialized");
 
-    while(1) {
+    xSemaphoreTake(mtpApp->join, portMAX_DELAY);
+
+    while(!mtpApp->is_terminated) {
         // TODO: handle attach and detach
         while(!mtpApp->configured) {
             vTaskDelay(50/portTICK_PERIOD_MS);
@@ -228,7 +235,7 @@ static void MtpTask(void *handle)
         xMessageBufferReset(mtpApp->inputBox);
         xMessageBufferReset(mtpApp->outputBox);
         mtp_responder_transaction_reset(mtpApp->responder);
-        printf("MTP reset done\n");
+        PRINTF("MTP reset done");
 
         mtpApp->in_reset = false;
 
@@ -240,7 +247,7 @@ static void MtpTask(void *handle)
             poll_new_data(mtpApp, &request_len);
 
             if (request_len == 0) {
-                PRINTF("[MTP APP]: Expected MTP message. Reset: %s\n", mtpApp->in_reset ? "true" : "false");
+                PRINTF("[MTP]: Expected MTP message. Reset: %s", mtpApp->in_reset ? "true" : "false");
                 continue;
             }
 
@@ -255,14 +262,14 @@ static void MtpTask(void *handle)
                     // request, which is valid MTP frame and has to be handled.
                     // Don't use timeout here (Windows host can freeze communication
                     // for a while, when assemling file at the end of transacion).
-                    PRINTF("[MTP APP]: Incomplete transfer. Expected more data\n");
+                    PRINTF("[MTP]: Incomplete transfer. Expected more data");
                     mtp_responder_transaction_reset(mtpApp->responder);
                 } else {
                     if (status == MTP_RESPONSE_OK) {
-                        PRINTF("[MTP APP]: Incoming transfer complete\n");
+                        PRINTF("[MTP]: Incoming transfer complete");
                         send_response(mtpApp, status);
                     } else if (status == MTP_RESPONSE_OBJECT_TOO_LARGE) {
-                        PRINTF("[MTP APP]: Object is too large\n");
+                        PRINTF("[MTP]: Object is too large");
                         send_response(mtpApp, status);
                     }
                     continue;
@@ -279,7 +286,7 @@ static void MtpTask(void *handle)
                         // According to spec, initiator can't issue new transacation, before
                         // current one ends. In this case, assume initiator sends new frame
                         // with cancellation request.
-                        PRINTF("[MTP APP]: incoming message during data transfer phase. Abort.");
+                        PRINTF("[MTP]: incoming message during data transfer phase. Abort.");
                         mtp_responder_transaction_reset(mtpApp->responder);
                         status = 0;
                         break;
@@ -297,7 +304,7 @@ static void MtpTask(void *handle)
 
                     if (!retries && !xMessageBufferIsEmpty(mtpApp->outputBox)
                             && !mtpApp->in_reset) {
-                        PRINTF("[MTP APP]: Outgoing data canceled (unable to send)\n");
+                        PRINTF("[MTP]: Outgoing data canceled (unable to send)");
                         mtpApp->in_reset = true;
                         break;
                     }
@@ -309,12 +316,22 @@ static void MtpTask(void *handle)
             }
         }
     }
+    mtp_fs_free(mtpApp->mtp_fs);
+    xSemaphoreGive(mtpApp->join);
+    PRINTF("[MTP] Task terminated");
+    vTaskDelete(NULL);
 }
 
 usb_status_t MtpInit(usb_mtp_struct_t *mtpApp, class_handle_t classHandle)
 {
     mtpApp->configured = 0;
+    mtpApp->is_terminated = false;
     mtpApp->classHandle = classHandle;
+
+    if ((mtpApp->join = xSemaphoreCreateBinary())  == NULL) {
+        return kStatus_USB_AllocFail;
+    }
+    xSemaphoreGive(mtpApp->join);
 
     if ((mtpApp->inputBox = xMessageBufferCreate(4*512)) == NULL) {
         return kStatus_USB_AllocFail;
@@ -328,6 +345,7 @@ usb_status_t MtpInit(usb_mtp_struct_t *mtpApp, class_handle_t classHandle)
     if ((mtpApp->responder = mtp_responder_alloc()) == NULL) {
         return kStatus_USB_AllocFail;
     }
+
     if (xTaskCreate(MtpTask,                  /* pointer to the task */
                     (char const *)"mtp task",       /* task name for kernel awareness debugging */
                     4096 / sizeof(portSTACK_TYPE), /* task stack size */
@@ -336,15 +354,35 @@ usb_status_t MtpInit(usb_mtp_struct_t *mtpApp, class_handle_t classHandle)
                     NULL             /* optional task handle to create */
                     ) != pdPASS)
     {
-        PRINTF("[MTP APP] Create task failed\n");
+        PRINTF("[MTP] Create task failed");
         return kStatus_USB_AllocFail;
     }
    return kStatus_USB_Success;
 }
 
+void MtpDeinit(usb_mtp_struct_t *mtpApp)
+{
+    mtpApp->in_reset = true;
+    mtpApp->is_terminated = true;
+    /* wait max 2 sec to terminate mtp thread */
+    if (xSemaphoreTake(mtpApp->join, 2000/portTICK_PERIOD_MS) == pdTRUE) {
+        mtp_responder_free(mtpApp->responder);
+        vStreamBufferDelete(mtpApp->outputBox);
+        vStreamBufferDelete(mtpApp->inputBox);
+        vSemaphoreDelete(mtpApp->join);
+        mtpApp->responder = NULL;
+        mtpApp->outputBox = NULL;
+        mtpApp->outputBox = NULL;
+        mtpApp->join = NULL;
+        PRINTF("[MTP] Deinitialized");
+    } else {
+        PRINTF("[MTP] Mtp Deinit failed. Unable to join thread");
+    }
+}
+
 void MtpDetached(usb_mtp_struct_t *mtpApp)
 {
-    PRINTF("[MTP APP] MTP detached\n");
+    PRINTF("[MTP] MTP detached");
     mtpApp->configured = false;
     mtpApp->in_reset = true;
 }

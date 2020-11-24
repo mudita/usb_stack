@@ -77,6 +77,11 @@ typedef struct _usb_cdc_vcom_struct
 usb_status_t VirtualComInit(usb_cdc_vcom_struct_t *cdcVcom, class_handle_t classHandle, userCbFunc callback, void *userArg);
 
 /**
+ * @brief Deinit and cleanup virtual port resources
+ */
+void VirtualComDeinit(usb_cdc_vcom_struct_t *cdcVcom);
+
+/**
  * @brief Notify VirtualCom that USB cable is unplugged
  */
 void VirtualComDetached(usb_cdc_vcom_struct_t *cdcVcom);

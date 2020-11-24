@@ -9,6 +9,7 @@
 struct mtp_db;
 
 struct mtp_db *mtp_db_alloc(void);
+void mtp_db_free(struct mtp_db *db);
 uint32_t mtp_db_add(struct mtp_db *db, const char *filename);
 void mtp_db_update(struct mtp_db *db, uint32_t handle, const char *key);
 const char *mtp_db_get(struct mtp_db *db, uint32_t handle);

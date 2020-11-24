@@ -11,5 +11,6 @@ struct mtp_fs;
 extern const struct mtp_storage_api simple_fs_api;
 
 struct mtp_fs* mtp_fs_alloc(void *disk);
+void mtp_fs_free(struct mtp_fs *fs);
 
 #endif /* _MTP_FS_H */

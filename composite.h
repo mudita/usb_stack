@@ -33,6 +33,7 @@ typedef struct _usb_device_composite_struct
         currentInterfaceAlternateSetting[USB_INTERFACE_COUNT]; /* Current alternate setting value for each interface. */
 } usb_device_composite_struct_t;
 
-usb_cdc_vcom_struct_t *composite_init(void);
+usb_device_composite_struct_t* composite_init(void);
+void composite_deinit(usb_device_composite_struct_t* composite);
 
 #endif /* _USB_DEVICE_COMPOSITE_H_ */

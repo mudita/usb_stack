@@ -351,3 +351,8 @@ extern "C" struct mtp_fs* mtp_fs_alloc(void *disk)
     return fs;
 }
 
+extern "C" void mtp_fs_free(struct mtp_fs *fs)
+{
+    mtp_db_free(fs->db);
+    vPortFree(fs);
+}
