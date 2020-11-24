@@ -66,6 +66,11 @@ struct mtp_db* mtp_db_alloc(void)
     return db;
 }
 
+void mtp_db_free(struct mtp_db* db)
+{
+    vPortFree(db);
+}
+
 uint32_t mtp_db_add(struct mtp_db *db, const char *key)
 {
     assert(db && key);

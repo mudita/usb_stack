@@ -75,16 +75,34 @@ static uint32_t USB_DeviceClockInit(void)
     return USB_EhciPhyInit(CONTROLLER_ID, BOARD_XTAL0_CLK_HZ, &phyConfig);
 }
 
-void USB_DeviceIsrEnable(void)
+static void USB_DeviceClockDeinit(void)
+{
+    USB_EhciPhyDeinit(CONTROLLER_ID);
+
+    if (CONTROLLER_ID == kUSB_ControllerEhci0)
+    {
+        CLOCK_DisableUsbhs0PhyPllClock();
+    }
+    else
+    {
+        CLOCK_DisableUsbhs1PhyPllClock();
+    }
+}
+
+static void USB_DeviceSetIsr(bool enable)
 {
     uint8_t irqNumber;
 
     uint8_t usbDeviceEhciIrq[] = USBHS_IRQS;
     irqNumber                  = usbDeviceEhciIrq[CONTROLLER_ID - kUSB_ControllerEhci0];
 
-    /* Install isr, set priority, and enable IRQ. */
-    NVIC_SetPriority((IRQn_Type)irqNumber, USB_DEVICE_INTERRUPT_PRIORITY);
-    EnableIRQ((IRQn_Type)irqNumber);
+    if (enable) {
+        /* Install isr, set priority, and enable IRQ. */
+        NVIC_SetPriority((IRQn_Type)irqNumber, USB_DEVICE_INTERRUPT_PRIORITY);
+        EnableIRQ((IRQn_Type)irqNumber);
+    } else {
+        DisableIRQ((IRQn_Type)irqNumber);
+    }
 }
 
 static usb_status_t USB_DeviceCallback(usb_device_handle handle, uint32_t event, void *param)
@@ -193,7 +211,7 @@ static usb_status_t USB_DeviceCallback(usb_device_handle handle, uint32_t event,
 }
 
 
-usb_cdc_vcom_struct_t *composite_init(void)
+usb_device_composite_struct_t* composite_init(void)
 {
     if (USB_DeviceClockInit() != kStatus_USB_Success) {
         LOG_ERROR("[Composite] USB Device Clock init failed");
@@ -220,12 +238,27 @@ usb_cdc_vcom_struct_t *composite_init(void)
             LOG_ERROR("[Composite] MTP initialization failed");
     }
 
-    USB_DeviceIsrEnable();
+    USB_DeviceSetIsr(true);
 
     if (USB_DeviceRun(composite.deviceHandle) != kStatus_USB_Success) {
         LOG_ERROR("[Composite] USB Device run failed");
     }
 
     LOG_DEBUG("[Composite] USB initialized");
-    return &composite.cdcVcom;
+    return &composite;
+}
+
+void composite_deinit(usb_device_composite_struct_t *composite)
+{
+    usb_status_t err;
+    if ((err = USB_DeviceStop(composite->deviceHandle)) != kStatus_USB_Success) {
+        LOG_ERROR("[Composite] Device stop failed: 0x%x", err);
+    }
+    USB_DeviceSetIsr(false);
+    MtpDeinit(&composite->mtpApp);
+    VirtualComDeinit(&composite->cdcVcom);
+    if ((err = USB_DeviceClassDeinit(CONTROLLER_ID)) != kStatus_USB_Success) {
+        LOG_ERROR("[Composite] Device class deinit failed: 0x%x", err);
+    }
+    USB_DeviceClockDeinit();
 }
