@@ -12,8 +12,8 @@
 #include "message_buffer.h"
 #include "event_groups.h"
 
-#include "virtual_com.h"
+#include "composite.h"
 
-void VirtualComDemoInit(usb_cdc_vcom_struct_t *cdcVcom);
+void VirtualComDemoInit(usb_device_composite_struct_t *usbComposite);
 
 #endif /* _VIRTUAL_COM_DEMO_H_ */

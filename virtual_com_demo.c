@@ -17,7 +17,7 @@ static void VirtualComConsumerTask(void *handle)
 {
 #define RX_CHUNK 512
     char *input = pvPortMalloc(RX_CHUNK);
-    usb_cdc_vcom_struct_t *cdcVcom = handle;
+    usb_device_composite_struct_t *usbComposite = handle;
     size_t len;
     size_t total = 0;
 
@@ -32,15 +32,15 @@ static void VirtualComConsumerTask(void *handle)
 
     while (1)
     {
-        //if VirtualComConfigured() {
-        //}
-        len = VirtualComRecv(cdcVcom, input, RX_CHUNK);
+        len = VirtualComRecv(&usbComposite->cdcVcom, input, RX_CHUNK);
         if (len > 0)
         {
+            composite_deinit(usbComposite);
+            break;
             size_t sent = 0;
             total += len;
             do {
-                size_t result = VirtualComSend(cdcVcom, &input[sent], len-sent);
+                size_t result = VirtualComSend(&usbComposite->cdcVcom, &input[sent], len-sent);
                 if (!result) {
                     continue;
                 }
@@ -50,14 +50,19 @@ static void VirtualComConsumerTask(void *handle)
             vTaskDelay(1/portTICK_PERIOD_MS);
         }
     }
+
+    while(1) {
+        LOG_INFO("USB should be deinitialized");
+        vTaskDelay(10000/portTICK_PERIOD_MS);
+    }
 }
 
-void VirtualComDemoInit(usb_cdc_vcom_struct_t *cdcVcom)
+void VirtualComDemoInit(usb_device_composite_struct_t *usbComposite)
 {
     if (xTaskCreate(VirtualComConsumerTask,
                     "VirtualComDemo",
                     2048L / sizeof(portSTACK_TYPE),
-                    cdcVcom,
+                    usbComposite,
                     2,
                     NULL
                     ) != pdPASS)
