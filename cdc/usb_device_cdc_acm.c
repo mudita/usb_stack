@@ -28,6 +28,7 @@
 
 #define USB_CDC_ACM_EXIT_CRITICAL() OSA_EXIT_CRITICAL()
 
+#define PRINTF LOG_DEBUG
 /*******************************************************************************
  * Variables
  ******************************************************************************/
@@ -704,25 +705,19 @@ usb_status_t USB_DeviceCdcAcmInit(uint8_t controllerId,
     cdcAcmHandle->alternate     = 0xFF;
 
     cdcAcmHandle->bulkIn.mutex = (osa_mutex_handle_t)&cdcAcmHandle->bulkIn.mutexBuffer[0];
-    if (KOSA_StatusSuccess != OSA_MutexCreate((cdcAcmHandle->bulkIn.mutex)))
+    if (KOSA_StatusSuccess != OSA_MutexCreate(&(cdcAcmHandle->bulkIn.mutex)))
     {
-#ifdef DEBUG
-        usb_echo("mutex create error!");
-#endif
+        PRINTF("[VCOM DEV]: mutex create error at %d!", __LINE__);
     }
     cdcAcmHandle->bulkOut.mutex = (osa_mutex_handle_t)&cdcAcmHandle->bulkOut.mutexBuffer[0];
-    if (KOSA_StatusSuccess != OSA_MutexCreate((cdcAcmHandle->bulkOut.mutex)))
+    if (KOSA_StatusSuccess != OSA_MutexCreate(&(cdcAcmHandle->bulkOut.mutex)))
     {
-#ifdef DEBUG
-        usb_echo("mutex create error!");
-#endif
+        PRINTF("[VCOM DEV]: mutex create error at %d!", __LINE__);
     }
     cdcAcmHandle->interruptIn.mutex = (osa_mutex_handle_t)&cdcAcmHandle->interruptIn.mutexBuffer[0];
-    if (KOSA_StatusSuccess != OSA_MutexCreate((cdcAcmHandle->interruptIn.mutex)))
+    if (KOSA_StatusSuccess != OSA_MutexCreate(&(cdcAcmHandle->interruptIn.mutex)))
     {
-#ifdef DEBUG
-        usb_echo("mutex create error!");
-#endif
+        PRINTF("[VCOM DEV]: mutex create error at %d!", __LINE__);
     }
     *handle = (class_handle_t)cdcAcmHandle;
     return error;
@@ -748,23 +743,17 @@ usb_status_t USB_DeviceCdcAcmDeinit(class_handle_t handle)
     {
         return kStatus_USB_InvalidHandle;
     }
-    if (KOSA_StatusSuccess != OSA_MutexDestroy((cdcAcmHandle->bulkIn.mutex)))
+    if (KOSA_StatusSuccess != OSA_MutexDestroy(&(cdcAcmHandle->bulkIn.mutex)))
     {
-#ifdef DEBUG
-        usb_echo("mutex destroy error!");
-#endif
+        PRINTF("[VCOM DEV] mutex destroy error!");
     }
-    if (KOSA_StatusSuccess != OSA_MutexDestroy((cdcAcmHandle->bulkOut.mutex)))
+    if (KOSA_StatusSuccess != OSA_MutexDestroy(&(cdcAcmHandle->bulkOut.mutex)))
     {
-#ifdef DEBUG
-        usb_echo("mutex destroy error!");
-#endif
+        PRINTF("[VCOM DEV] mutex destroy error!");
     }
-    if (KOSA_StatusSuccess != OSA_MutexDestroy((cdcAcmHandle->interruptIn.mutex)))
+    if (KOSA_StatusSuccess != OSA_MutexDestroy(&(cdcAcmHandle->interruptIn.mutex)))
     {
-#ifdef DEBUG
-        usb_echo("mutex destroy error!");
-#endif
+        PRINTF("[VCOM DEV] mutex destroy error!");
     }
     error = USB_DeviceCdcAcmEndpointsDeinit(cdcAcmHandle);
     USB_DeviceCdcAcmFreeHandle(cdcAcmHandle);

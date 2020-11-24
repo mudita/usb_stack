@@ -22,6 +22,8 @@
 
 #define USB_MTP_EXIT_CRITICAL() USB_OSA_EXIT_CRITICAL()
 
+#define PRINTF LOG_DEBUG
+
 USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE)
     usb_device_mtp_struct_t g_mtpHandle[USB_DEVICE_CONFIG_MTP];
 
@@ -54,7 +56,7 @@ static usb_status_t USB_DeviceClassMtpInterruptIn(usb_device_handle handle,
                                       void *callbackParam)
 {
     usb_status_t error = kStatus_USB_Error;
-    usb_echo("%s\r\n", __FUNCTION__);
+    PRINTF("%s", __FUNCTION__);
     return error;
 }
 
@@ -226,7 +228,7 @@ static usb_status_t handler_DeviceClassEventDeviceReset(usb_device_mtp_struct_t 
 {
     (void)param;
     mtp_device->configuration = 0;
-    usb_echo("[MTP] reset\r\n");
+    PRINTF("[MTP DEV] reset");
     return kStatus_USB_Success;
 }
 
@@ -246,7 +248,7 @@ static usb_status_t handler_DeviceClassEventSetConfiguration(usb_device_mtp_stru
 
     if ((error = USB_DeviceClassMtpEndpointsDeinit(mtp)))
     {
-        usb_echo("[MTP]: endpoints deinit failed: %d\r\n", error);
+        PRINTF("[MTP DEV]: endpoints deinit failed: %d", error);
     }
 
     mtp->configuration = cfg_id;
@@ -254,7 +256,7 @@ static usb_status_t handler_DeviceClassEventSetConfiguration(usb_device_mtp_stru
 
     if ((error = USB_DeviceClassMtpEndpointsInit(mtp)))
     {
-        usb_echo("[MTP]: endpoints init failed: %d\r\n", error);
+        PRINTF("[MTP DEV]: endpoints init failed: %d", error);
         return error;
     }
 
@@ -265,19 +267,19 @@ static usb_status_t handler_DeviceClassEventSetConfiguration(usb_device_mtp_stru
 
 static usb_status_t handler_DeviceClassEventSetInterface(usb_device_mtp_struct_t *mtp, void *param)
 {
-    usb_echo("[MTP]: %s not implemented\r\n", __FUNCTION__);
+    PRINTF("[MTP DEV]: %s not implemented", __FUNCTION__);
     return kStatus_USB_InvalidParameter;
 }
 static usb_status_t handler_DeviceClassEventSetEndpointHalt(usb_device_mtp_struct_t *mtp, void *param)
 {
     usb_status_t error = kStatus_USB_Error;
-    usb_echo("[MTP]: %s not implemented\r\n", __FUNCTION__);
+    PRINTF("[MTP DEV]: %s not implemented", __FUNCTION__);
     return error;
 }
 static usb_status_t handler_DeviceClassEventClearEndpointHalt(usb_device_mtp_struct_t *mtp, void *param)
 {
     usb_status_t error = kStatus_USB_Error;
-    usb_echo("[MTP]: %s not implemented\r\n", __FUNCTION__);
+    PRINTF("[MTP DEV]: %s not implemented", __FUNCTION__);
     return error;
 }
 
@@ -296,7 +298,7 @@ static usb_status_t handler_DeviceClassEventClassRequest(usb_device_mtp_struct_t
 
         usb_device_control_request_struct_t *request = (usb_device_control_request_struct_t*)param;
         if (request->setup) {
-            usb_echo("[MTP] Control request: [bmRequestType = 0x%x, bRequest = 0x%x, wValue = 0x%x, wIndex = 0x%x, wLength = 0x%x]\n",
+            PRINTF("[MTP DEV] Control request: [bmRequestType = 0x%x, bRequest = 0x%x, wValue = 0x%x, wIndex = 0x%x, wLength = 0x%x]",
                     request->setup->bmRequestType,
                     request->setup->bRequest,
                     request->setup->wValue,
@@ -314,10 +316,10 @@ static usb_status_t handler_DeviceClassEventClassRequest(usb_device_mtp_struct_t
                 error = mtp->configStruct->classCallback(kUSB_DeviceMtpEventRequestDeviceStatus, controlRequest, mtp->configStruct->classCalbackArg);
                 break;
             case MTP_CLASS_REQUEST_RESET:
-                usb_echo("[MTP]: MTP_CLASS_REQUEST_RESET not implemented\n");
+                PRINTF("[MTP DEV]: MTP_CLASS_REQUEST_RESET not implemented");
                 break;
             default:
-                usb_echo("[MTP]: Unknown class request: 0x%x\n", controlRequest->setup->bRequest);
+                PRINTF("[MTP DEV]: Unknown class request: 0x%x", controlRequest->setup->bRequest);
         }
     }
     return error;
@@ -391,21 +393,15 @@ usb_status_t USB_DeviceClassMtpInit(uint8_t controllerId,
 
     if (KOSA_StatusSuccess != OSA_MutexCreate(&(mtpHandle->bulkIn.mutex)))
     {
-#ifdef DEBUG
-        usb_echo("mutex create error!");
-#endif
+        PRINTF("[MTP DEV]: mutex create error at %d!", __LINE__);
     }
     if (KOSA_StatusSuccess != OSA_MutexCreate(&(mtpHandle->bulkOut.mutex)))
     {
-#ifdef DEBUG
-        usb_echo("mutex create error!");
-#endif
+        PRINTF("[MTP DEV]: mutex create error at %d!", __LINE__);
     }
     if (KOSA_StatusSuccess != OSA_MutexCreate(&(mtpHandle->interruptIn.mutex)))
     {
-#ifdef DEBUG
-        usb_echo("mutex create error!");
-#endif
+        PRINTF("[MTP DEV]: mutex create error at %d!", __LINE__);
     }
     *handle = (class_handle_t)mtpHandle;
     return error;
@@ -422,26 +418,22 @@ usb_status_t USB_DeviceClassMtpDeinit(class_handle_t handle)
     {
         return kStatus_USB_InvalidHandle;
     }
-    if (KOSA_StatusSuccess != OSA_MutexDestroy((mtpHandle->bulkIn.mutex)))
+
+    if (KOSA_StatusSuccess != OSA_MutexDestroy(&(mtpHandle->bulkIn.mutex)))
     {
-#ifdef DEBUG
-        usb_echo("mutex destroy error!");
-#endif
+        PRINTF("[MTP DEV] mutex destroy error!");
     }
-    if (KOSA_StatusSuccess != OSA_MutexDestroy((mtpHandle->bulkOut.mutex)))
+    if (KOSA_StatusSuccess != OSA_MutexDestroy(&(mtpHandle->bulkOut.mutex)))
     {
-#ifdef DEBUG
-        usb_echo("mutex destroy error!");
-#endif
+        PRINTF("[MTP DEV] mutex destroy error!");
     }
-    if (KOSA_StatusSuccess != OSA_MutexDestroy((mtpHandle->interruptIn.mutex)))
+    if (KOSA_StatusSuccess != OSA_MutexDestroy(&(mtpHandle->interruptIn.mutex)))
     {
-#ifdef DEBUG
-        usb_echo("mutex destroy error!");
-#endif
+        PRINTF("[MTP DEV] mutex destroy error!");
     }
     error = USB_DeviceClassMtpEndpointsDeinit(mtpHandle);
     USB_DeviceClassMtpFreeHandle(mtpHandle);
+    PRINTF("[MTP DEV] Deinitialized");
     return error;
 }
 
