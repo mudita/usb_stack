@@ -20,7 +20,7 @@ set(USB_SRC
         "${CMAKE_CURRENT_SOURCE_DIR}/board/rt1051/bsp/usb/phy/usb_phy.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/board/rt1051/bsp/usb/usb_device_descriptor.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/board/rt1051/bsp/usb/composite.c"
-        "${CMAKE_CURRENT_SOURCE_DIR}/board/rt1051/bsp/usb/virtual_com_demo.c"
+        #"${CMAKE_CURRENT_SOURCE_DIR}/board/rt1051/bsp/usb/virtual_com_demo.c"
 	"${CMAKE_CURRENT_SOURCE_DIR}/board/rt1051/bsp/usb/usb.cpp"
         CACHE INTERNAL ""
         )

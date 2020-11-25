@@ -22,7 +22,7 @@ extern "C"
 
 namespace bsp
 {
-    usb_cdc_vcom_struct_t *cdcVcomStruct = nullptr;
+    usb_device_composite_struct_t *usbDeviceComposite = nullptr;
     TaskHandle_t usbTaskHandle = NULL;
     xQueueHandle USBReceiveQueue;
     static cpp_freertos::MutexStandard mutex;
@@ -45,9 +45,9 @@ namespace bsp
         }
 
         USBReceiveQueue = queueHandle;
-        cdcVcomStruct = composite_init();
+        usbDeviceComposite= composite_init();
 
-        return (cdcVcomStruct == NULL) ? -1 : 0;
+        return (usbDeviceComposite == NULL) ? -1 : 0;
     }
 
     void usbDeviceTask(void *handle)
@@ -61,6 +61,7 @@ namespace bsp
             dataReceivedLength = usbCDCReceive(&usbSerialBuffer);
 
             if (dataReceivedLength > 0) {
+
                 if (deviceListener->getRawMode()) {
                     cpp_freertos::LockGuard lock(mutex);
                     deviceListener->rawDataReceived(&usbSerialBuffer, dataReceivedLength);
@@ -81,7 +82,7 @@ namespace bsp
 
     int usbCDCReceive(void *buffer)
     {
-        return VirtualComRecv(cdcVcomStruct, buffer, SERIAL_BUFFER_LEN);
+        return VirtualComRecv(&usbDeviceComposite->cdcVcom, buffer, SERIAL_BUFFER_LEN);
     }
 
     int usbCDCSend(std::string *message)
@@ -89,7 +90,7 @@ namespace bsp
         uint32_t dataSent = 0;
         const char *dataPtr = (*message).c_str();
         do {
-            uint32_t len =  VirtualComSend(cdcVcomStruct, dataPtr + dataSent, message->length() - dataSent);
+            uint32_t len =  VirtualComSend(&usbDeviceComposite->cdcVcom, dataPtr + dataSent, message->length() - dataSent);
             if (!len) {
                 vTaskDelay(1 / portTICK_PERIOD_MS);
                 continue;
