@@ -50,6 +50,12 @@ namespace bsp
         return (usbDeviceComposite == NULL) ? -1 : 0;
     }
 
+    void usbDeinit()
+    {
+        LOG_INFO("usbDeinit");
+        composite_deinit(usbDeviceComposite);
+    }
+
     void usbDeviceTask(void *handle)
     {
         USBDeviceListener *deviceListener = static_cast<USBDeviceListener *>(handle);
