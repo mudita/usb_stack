@@ -350,7 +350,7 @@ usb_status_t MtpInit(usb_mtp_struct_t *mtpApp, class_handle_t classHandle)
                     (char const *)"mtp task",       /* task name for kernel awareness debugging */
                     4096 / sizeof(portSTACK_TYPE), /* task stack size */
                     mtpApp,                   /* optional task startup argument */
-                    5,                              /* initial priority */
+                    tskIDLE_PRIORITY,               /* initial priority */
                     NULL             /* optional task handle to create */
                     ) != pdPASS)
     {
