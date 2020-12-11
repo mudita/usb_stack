@@ -88,6 +88,9 @@ namespace bsp
 
     int usbCDCReceive(void *buffer)
     {
+        if (usbDeviceComposite->cdcVcom.inputStream == nullptr)
+            return 0;
+
         return VirtualComRecv(&usbDeviceComposite->cdcVcom, buffer, SERIAL_BUFFER_LEN);
     }
 
