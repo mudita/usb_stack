@@ -82,6 +82,8 @@ static usb_status_t ScheduleSend(usb_mtp_struct_t *mtpApp, void *buffer, size_t 
 static usb_status_t OnConfigurationComplete(usb_mtp_struct_t* mtpApp, void *param)
 {
     mtpApp->configured = true;
+    PRINTF("[MTP] Configured");
+    xSemaphoreGiveFromISR(mtpApp->join, NULL);
     return kStatus_USB_Success;
 }
 
@@ -227,9 +229,10 @@ static void MtpTask(void *handle)
     xSemaphoreTake(mtpApp->join, portMAX_DELAY);
 
     while(!mtpApp->is_terminated) {
-        // TODO: handle attach and detach
-        while(!mtpApp->configured) {
-            vTaskDelay(50/portTICK_PERIOD_MS);
+
+        if (!mtpApp->configured) {
+            PRINTF("[MTP] Wait for configuration");
+            xSemaphoreTake(mtpApp->join, portMAX_DELAY);
         }
 
         xMessageBufferReset(mtpApp->inputBox);
