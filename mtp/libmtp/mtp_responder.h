@@ -120,6 +120,14 @@ uint16_t mtp_responder_set_data(mtp_responder_t *mtp, void *incoming, size_t siz
  */
 void mtp_responder_get_response(mtp_responder_t *mtp, uint16_t code, void *data_out, size_t *size);
 
+/** @brief Create an event frame according to provided error code
+ *  @param library handle
+ *  @param code MTP error/success code
+ *  @param data_out buffer to store the frame
+ *  @param size frame length to be send
+ */
+void mtp_responder_get_event(mtp_responder_t *mtp, uint16_t code, void *data_out, size_t *size);
+
 void mtp_responder_transaction_reset(mtp_responder_t *mtp);
 
 

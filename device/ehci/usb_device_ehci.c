@@ -271,7 +271,7 @@ static usb_status_t USB_DeviceEhciEndpointInit(usb_device_ehci_state_struct_t *e
         /* Set ZLT bit. */
         ehciState->qh[index].capabilttiesCharacteristicsUnion.capabilttiesCharacteristicsBitmap.zlt = !epInit->zlt;
     }
-    
+
     /* Enable the endpoint. */
     if ((USB_CONTROL_ENDPOINT == endpoint))
     {
@@ -418,7 +418,7 @@ static usb_status_t USB_DeviceEhciEndpointUnstall(usb_device_ehci_state_struct_t
     }
     /* Cancel the transfer of the endpoint */
     USB_DeviceEhciCancel(ehciState, ep);
-    
+
     return kStatus_USB_Success;
 }
 
