@@ -177,11 +177,13 @@ static usb_status_t OnIncomingFrame(usb_mtp_struct_t* mtpApp, void *param)
     return kStatus_USB_Success;
 }
 
+
 static usb_status_t OnOutgoingFrameSent(usb_mtp_struct_t* mtpApp, void *param)
 {
     if (mtpApp->configured) {
         PRINTF("[MTP] already sent");
         size_t length = xMessageBufferReceiveFromISR(mtpApp->outputBox, tx_buffer, sizeof(tx_buffer), NULL);
+        PRINTF("[MTP] TX: %d, queued: %d", (int)epCbParam->length, length);
         if (length && USB_DeviceClassMtpSend(mtpApp->classHandle, USB_MTP_BULK_IN_ENDPOINT, tx_buffer, length) != kStatus_USB_Success) {
             PRINTF("[MTP] Dropped outgoing bytes: 0x%d:", (int)length);
             return kStatus_USB_Error;

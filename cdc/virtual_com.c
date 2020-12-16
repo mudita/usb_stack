@@ -449,6 +449,7 @@ usb_status_t VirtualComInit(usb_cdc_vcom_struct_t *cdcVcom, class_handle_t class
 void VirtualComDeinit(usb_cdc_vcom_struct_t *cdcVcom)
 {
     if (!cdcVcom || !cdcVcom->configured || !cdcVcom->inputStream || !cdcVcom->inputStream) {
+
         PRINTF("[VCOM] Attempt to deinit not initialized virtual com");
         return;
     }
