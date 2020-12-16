@@ -202,6 +202,11 @@ static void USB_DeviceEhciSetDefaultState(usb_device_ehci_state_struct_t *ehciSt
 #endif /* USB_DEVICE_CONFIG_LOW_POWER_MODE */
          );
 
+#if defined(USB_DEVICE_CONFIG_FORCE_FULL_SPEED) && (USB_DEVICE_CONFIG_FORCE_FULL_SPEED > 0U)
+    /* Force Full-Speed device */
+    ehciState->registerBase->PORTSC1 |= (1<<USBHS_PORTSC1_PFSC_SHIFT);
+#endif
+
     /* Clear reset flag */
     ehciState->isResetting = 0U;
 }
