@@ -55,7 +55,7 @@ namespace bsp
         }
 
         USBReceiveQueue = queueHandle;
-        usbDeviceComposite= composite_init();
+        usbDeviceComposite = composite_init();
 
         return (usbDeviceComposite == NULL) ? -1 : 0;
     }
@@ -77,7 +77,7 @@ namespace bsp
             dataReceivedLength = usbCDCReceive(&usbSerialBuffer);
 
             if (dataReceivedLength > 0) {
-                LOG_DEBUG("usbDeviceTask Received: %d signs: [%s]", static_cast<int>(dataReceivedLength), usbSerialBuffer);
+                LOG_DEBUG("usbDeviceTask Received: %d signs", static_cast<int>(dataReceivedLength));
 
 #if USBCDC_ECHO_ENABLED
                 bool usbCdcEchoEnabledPrev = usbCdcEchoEnabled;

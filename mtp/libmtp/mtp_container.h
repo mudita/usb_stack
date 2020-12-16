@@ -39,8 +39,8 @@ struct mtp_op_cntr
 __attribute__((packed))
 struct mtp_event
 {
+    uint16_t length;
     uint16_t code;
-    uint32_t transaction_id;
 };
 
 typedef struct mtp_cntr_hdr mtp_cntr_hdr_t;
