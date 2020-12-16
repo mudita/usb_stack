@@ -17,13 +17,22 @@
 #include "mtp_responder.h"
 #include "mtp_fs.h"
 
+#if DEBUG_MTP
 #define PRINTF LOG_DEBUG
+#else
+#define PRINTF(...)
+#endif
 
-USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE) uint8_t rx_buffer[512];
-USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE) uint8_t tx_buffer[512];
-USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE) uint8_t request[512];
-USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE) uint8_t response[512];
-USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE) uint8_t event_response[6];
+/* Number of buffers that fit into input and output stream */
+#define CONFIG_RX_STREAM_SIZE (4)
+#define CONFIG_TX_STREAM_SIZE (1)
+#define CONFIG_MTP_STORAGE_ID (0x00010001)
+
+USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE) uint8_t rx_buffer[HS_MTP_BULK_IN_PACKET_SIZE];
+USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE) uint8_t tx_buffer[HS_MTP_BULK_OUT_PACKET_SIZE];
+USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE) uint8_t event_response[HS_MTP_INTR_IN_PACKET_SIZE];
+USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE) static uint8_t mtp_request[sizeof(rx_buffer)];
+USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE) static uint8_t mtp_response[sizeof(tx_buffer)];
 
 static mtp_device_info_t dummy_device = {
     .manufacturer = "Mudita",
@@ -35,7 +44,7 @@ static mtp_device_info_t dummy_device = {
 static usb_status_t RescheduleRecv(usb_mtp_struct_t *mtpApp)
 {
     // -4 because length of message needs to be stored too
-    size_t endpoint_size = 512;
+    size_t endpoint_size = mtpApp->usb_buffer_size;
     usb_status_t error = kStatus_USB_Success;
     if (!USB_DeviceClassMtpIsBusy(mtpApp->classHandle, USB_MTP_BULK_OUT_ENDPOINT)
             && !mtpApp->in_reset) {
@@ -50,38 +59,93 @@ static usb_status_t RescheduleRecv(usb_mtp_struct_t *mtpApp)
     return error;
 }
 
-static usb_status_t ScheduleSend(usb_mtp_struct_t *mtpApp, void *buffer, size_t length)
+static size_t SliceToStream(usb_mtp_struct_t *mtpApp, void *buffer, size_t length)
+{
+    size_t total = 0;
+    size_t remaining = length;
+
+    while (remaining > 0) {
+        size_t to_send = (remaining < mtpApp->usb_buffer_size) ? remaining : mtpApp->usb_buffer_size;
+        size_t buffered = xMessageBufferSend(mtpApp->outputBox, &((uint8_t*)buffer)[total], to_send, 0);
+        if (buffered <= 0) {
+            break;
+        }
+
+        total += buffered;
+        remaining -= buffered;
+    }
+    return total;
+}
+
+static usb_status_t USBSend(usb_mtp_struct_t *mtpApp, void *buffer, size_t length)
 {
     usb_status_t error = kStatus_USB_Error;
-    if (!mtpApp->configured || length > 512 || !length)
+    uint32_t timeout_ms = 1;
+    int retries = 30;
+
+    while (--retries
+            && !mtpApp->in_reset
+            && !mtpApp->is_terminated)
+    {
+        error = USB_DeviceClassMtpSend(mtpApp->classHandle,
+                    USB_MTP_BULK_IN_ENDPOINT, buffer, length);
+        if (error == kStatus_USB_Success) {
+            break;
+        } else if (error == kStatus_USB_Busy) {
+            vTaskDelay(timeout_ms / portTICK_PERIOD_MS);
+            timeout_ms *= 2;
+        }
+    }
+    return error;
+}
+
+static size_t Send(usb_mtp_struct_t *mtpApp, void *buffer, size_t length)
+{
+    size_t sent = 0;
+    if (!mtpApp->configured || !length)
         return kStatus_USB_InvalidParameter;
 
     taskENTER_CRITICAL();
 
-    int is_busy = USB_DeviceClassMtpIsBusy(mtpApp->classHandle, USB_MTP_BULK_IN_ENDPOINT);
-    if (!is_busy) {
-        memcpy(tx_buffer, buffer, length);
-        error = USB_DeviceClassMtpSend(mtpApp->classHandle, USB_MTP_BULK_IN_ENDPOINT, tx_buffer, length);
-    } else {
-        if (xMessageBufferSend(mtpApp->outputBox, buffer, length, 0) != length) {
-            error = kStatus_USB_Busy;
+    PRINTF("[MTP] want to send: %d", (int)length);
+
+    if (xMessageBufferIsEmpty(mtpApp->outputBox)) {
+
+        taskEXIT_CRITICAL();
+
+        size_t send_now = (length < mtpApp->usb_buffer_size) ? length : mtpApp->usb_buffer_size;
+        size_t remaining = (length - send_now);
+        size_t buffered;
+
+        if (remaining) {
+            buffered = SliceToStream(mtpApp, &((uint8_t*)buffer)[mtpApp->usb_buffer_size], remaining);
+            sent = send_now + buffered;
         } else {
-            error = kStatus_USB_Success;
+            sent = send_now;
         }
-    }
-    taskEXIT_CRITICAL();
-    if (error == kStatus_USB_Busy) {
-        PRINTF("[MTP] Outgoing queue full, waiting a bit");
-    } else if (error) {
-        PRINTF("[MTP] ScheduleSend error: 0x%x", error);
+
+        memcpy(tx_buffer, buffer, send_now);
+
+        if (USBSend(mtpApp, tx_buffer, send_now) != kStatus_USB_Success) {
+            xMessageBufferReset(mtpApp->outputBox);
+            PRINTF("[MTP] FATAL: Couldn't send data");
+            sent = 0;
+        }
+    } else {
+        // fill buffer up
+        taskEXIT_CRITICAL();
+        PRINTF("[MTP] TX is busy and we want to queue more data");
     }
 
-    return error;
+    PRINTF("[MTP] accepted to send: %d", (int)sent);
+    return sent;
 }
 
 static usb_status_t OnConfigurationComplete(usb_mtp_struct_t* mtpApp, void *param)
 {
     mtpApp->configured = true;
+    PRINTF("[MTP] Configured");
+    xSemaphoreGiveFromISR(mtpApp->join, NULL);
     return kStatus_USB_Success;
 }
 
@@ -110,12 +174,15 @@ static usb_status_t OnIncomingFrame(usb_mtp_struct_t* mtpApp, void *param)
     return kStatus_USB_Success;
 }
 
+
 static usb_status_t OnOutgoingFrameSent(usb_mtp_struct_t* mtpApp, void *param)
 {
     usb_device_endpoint_callback_message_struct_t *epCbParam = (usb_device_endpoint_callback_message_struct_t*) param;
 
     if (mtpApp->configured) {
+        PRINTF("[MTP] already sent");
         size_t length = xMessageBufferReceiveFromISR(mtpApp->outputBox, tx_buffer, sizeof(tx_buffer), NULL);
+        PRINTF("[MTP] TX: %d, queued: %d", (int)epCbParam->length, length);
         if (length && USB_DeviceClassMtpSend(mtpApp->classHandle, USB_MTP_BULK_IN_ENDPOINT, tx_buffer, length) != kStatus_USB_Success) {
             PRINTF("[MTP] Dropped outgoing bytes: 0x%d:", (int)length);
             return kStatus_USB_Error;
@@ -136,15 +203,14 @@ static usb_status_t OnCancelTransaction(usb_mtp_struct_t *mtpApp, void *param)
 static usb_status_t OnGetStatus(usb_mtp_struct_t *mtpApp, void *param)
 {
     usb_device_control_request_struct_t *request = (usb_device_control_request_struct_t*)param;
-    uint16_t status = 0x2001;
+    uint16_t status = MTP_RESPONSE_OK;
+    size_t event_length = 0;
     if (mtpApp->in_reset || mtp_responder_data_transaction_open(mtpApp->responder)) {
-        status = 0x2019;
+        status = MTP_RESPONSE_DEVICE_BUSY;
     }
-
-    *(uint16_t*)event_response = 0x0004;
-    *(uint16_t*)&event_response[2] = status;
+    mtp_responder_get_event(mtpApp->responder, status, event_response, &event_length);
     request->buffer = event_response;
-    request->length = 4;
+    request->length = event_length;
     PRINTF("[MTP] Control Device Status Response: 0x%04x", status);
     return kStatus_USB_Success;
 }
@@ -181,14 +247,12 @@ static void send_response(usb_mtp_struct_t *mtpApp, uint16_t status)
 {
     usb_status_t send_status;
     size_t result_len = 0;
-    int retries = 3;
     mtp_responder_t *responder = mtpApp->responder;
 
-    mtp_responder_get_response(responder, status, response, &result_len);
-    while((send_status = ScheduleSend(mtpApp, response, result_len)) == kStatus_USB_Busy && --retries)
-        vTaskDelay(50/portTICK_PERIOD_MS);
-    if (send_status != kStatus_USB_Success) {
-        PRINTF("[MTP]: Transfer failed: 0x%x", send_status);
+    mtp_responder_get_response(responder, status, mtp_response, &result_len);
+
+    if (!Send(mtpApp, mtp_response, result_len)) {
+        PRINTF("[MTP] Transfer failed");
     }
 }
 
@@ -198,7 +262,7 @@ static void poll_new_data(usb_mtp_struct_t *mtpApp, size_t *request_len)
         taskENTER_CRITICAL();
         RescheduleRecv(mtpApp);
         taskEXIT_CRITICAL();
-        *request_len = xMessageBufferReceive(mtpApp->inputBox, request, sizeof(request), 100/portTICK_PERIOD_MS);
+        *request_len = xMessageBufferReceive(mtpApp->inputBox, mtp_request, sizeof(mtp_request), 100/portTICK_PERIOD_MS);
     } while(*request_len == 0 && !mtpApp->in_reset);
 }
 
@@ -208,34 +272,37 @@ static void MtpTask(void *handle)
     mtp_responder_t* responder;
 
     if (!(mtpApp->mtp_fs = mtp_fs_alloc(NULL))) {
-        PRINTF("[MTP]: MTP FS initialization failed!");
+        PRINTF("[MTP] MTP FS initialization failed!");
         return;
     }
 
     mtp_responder_init(mtpApp->responder);
-    mtp_responder_set_device_info(mtpApp->responder, &dummy_device);
-    mtp_responder_set_data_buffer(mtpApp->responder, response, sizeof(response));
+    if (mtp_responder_set_device_info(mtpApp->responder, &dummy_device)) {
+        PRINTF("[MTP] Invalide device info!");
+        return;
+    }
+    mtp_responder_set_data_buffer(mtpApp->responder, mtp_response, sizeof(mtp_response));
 
     mtp_responder_set_storage(mtpApp->responder,
-            0x00010001,
+            CONFIG_MTP_STORAGE_ID,
             &simple_fs_api,
             mtpApp->mtp_fs);
     responder = mtpApp->responder;
 
-    PRINTF("[MTP] Initialized");
-
     xSemaphoreTake(mtpApp->join, portMAX_DELAY);
 
     while(!mtpApp->is_terminated) {
-        // TODO: handle attach and detach
-        while(!mtpApp->configured) {
-            vTaskDelay(50/portTICK_PERIOD_MS);
+
+        if (!mtpApp->configured) {
+            PRINTF("[MTP] Wait for configuration");
+            xSemaphoreTake(mtpApp->join, portMAX_DELAY);
         }
 
         xMessageBufferReset(mtpApp->inputBox);
         xMessageBufferReset(mtpApp->outputBox);
         mtp_responder_transaction_reset(mtpApp->responder);
-        PRINTF("MTP reset done");
+
+        PRINTF("[MTP] Ready");
 
         mtpApp->in_reset = false;
 
@@ -247,13 +314,13 @@ static void MtpTask(void *handle)
             poll_new_data(mtpApp, &request_len);
 
             if (request_len == 0) {
-                PRINTF("[MTP]: Expected MTP message. Reset: %s", mtpApp->in_reset ? "true" : "false");
+                PRINTF("[MTP] Expected MTP message. Reset: %s", mtpApp->in_reset ? "true" : "false");
                 continue;
             }
 
             // Incoming data transaction open:
             if (mtp_responder_data_transaction_open(responder)) {
-                status = mtp_responder_set_data(responder, request, request_len);
+                status = mtp_responder_set_data(responder, mtp_request, request_len);
                 if (status == MTP_RESPONSE_INCOMPLETE_TRANSFER)
                 {
                     // This happens with Linux (Nautilus) client. Cancelation procedure
@@ -262,21 +329,21 @@ static void MtpTask(void *handle)
                     // request, which is valid MTP frame and has to be handled.
                     // Don't use timeout here (Windows host can freeze communication
                     // for a while, when assemling file at the end of transacion).
-                    PRINTF("[MTP]: Incomplete transfer. Expected more data");
+                    PRINTF("[MTP] Incomplete transfer. Expected more data");
                     mtp_responder_transaction_reset(mtpApp->responder);
                 } else {
                     if (status == MTP_RESPONSE_OK) {
-                        PRINTF("[MTP]: Incoming transfer complete");
+                        PRINTF("[MTP] Incoming transfer complete");
                         send_response(mtpApp, status);
                     } else if (status == MTP_RESPONSE_OBJECT_TOO_LARGE) {
-                        PRINTF("[MTP]: Object is too large");
+                        PRINTF("[MTP] Object is too large");
                         send_response(mtpApp, status);
                     }
                     continue;
                 }
             }
 
-            status = mtp_responder_handle_request(responder, request, request_len);
+            status = mtp_responder_handle_request(responder, mtp_request, request_len);
 
             if (status != MTP_RESPONSE_UNDEFINED) {
                 while((result_len = mtp_responder_get_data(responder)) && !mtpApp->in_reset) {
@@ -286,25 +353,14 @@ static void MtpTask(void *handle)
                         // According to spec, initiator can't issue new transacation, before
                         // current one ends. In this case, assume initiator sends new frame
                         // with cancellation request.
-                        PRINTF("[MTP]: incoming message during data transfer phase. Abort.");
+                        PRINTF("[MTP] incoming message during data transfer phase. Abort.");
                         mtp_responder_transaction_reset(mtpApp->responder);
                         status = 0;
                         break;
                     }
 
-                    int retries = 30;
-                    uint32_t timeout_ms = 1;
-                    while((send_status = ScheduleSend(mtpApp, response, result_len)) == kStatus_USB_Busy
-                            && --retries
-                            && !mtpApp->in_reset)
-                    {
-                        vTaskDelay(timeout_ms/portTICK_PERIOD_MS);
-                        timeout_ms *= 2;
-                    }
-
-                    if (!retries && !xMessageBufferIsEmpty(mtpApp->outputBox)
-                            && !mtpApp->in_reset) {
-                        PRINTF("[MTP]: Outgoing data canceled (unable to send)");
+                    if (!Send(mtpApp, mtp_response, result_len)) {
+                        PRINTF("[MTP] Outgoing data canceled (unable to send)");
                         mtpApp->in_reset = true;
                         break;
                     }
@@ -333,12 +389,12 @@ usb_status_t MtpInit(usb_mtp_struct_t *mtpApp, class_handle_t classHandle)
     }
     xSemaphoreGive(mtpApp->join);
 
-    if ((mtpApp->inputBox = xMessageBufferCreate(4*512)) == NULL) {
+    if ((mtpApp->inputBox = xMessageBufferCreate(CONFIG_RX_STREAM_SIZE*sizeof(rx_buffer))) == NULL) {
         return kStatus_USB_AllocFail;
     }
 
-    // SD Card is slower than USB, doesn't need to buffer too much
-    if ((mtpApp->outputBox = xMessageBufferCreate(4 + 512)) == NULL) {
+    /* sizeof(uint32_t) additional bytes to store number of bytes in the stream */
+    if ((mtpApp->outputBox = xMessageBufferCreate(sizeof(uint32_t) + CONFIG_TX_STREAM_SIZE*sizeof(tx_buffer))) == NULL) {
         return kStatus_USB_AllocFail;
     }
 
@@ -347,7 +403,7 @@ usb_status_t MtpInit(usb_mtp_struct_t *mtpApp, class_handle_t classHandle)
     }
 
     if (xTaskCreate(MtpTask,                  /* pointer to the task */
-                    (char const *)"mtp task",       /* task name for kernel awareness debugging */
+                    "mtp task",               /* task name for kernel awareness debugging */
                     4096 / sizeof(portSTACK_TYPE), /* task stack size */
                     mtpApp,                   /* optional task startup argument */
                     tskIDLE_PRIORITY,               /* initial priority */
@@ -377,6 +433,20 @@ void MtpDeinit(usb_mtp_struct_t *mtpApp)
         PRINTF("[MTP] Deinitialized");
     } else {
         PRINTF("[MTP] Mtp Deinit failed. Unable to join thread");
+    }
+}
+
+void MtpReset(usb_mtp_struct_t *mtpApp, uint8_t speed)
+{
+    mtpApp->configured = false;
+    mtpApp->in_reset = true;
+    if (speed == USB_SPEED_FULL)
+    {
+        PRINTF("[MTP] Reset to Full-Speed 12Mbps");
+        mtpApp->usb_buffer_size = FS_MTP_BULK_OUT_PACKET_SIZE;
+    } else {
+        PRINTF("[MTP] Reset to High-Speed 480Mbps");
+        mtpApp->usb_buffer_size = HS_MTP_BULK_OUT_PACKET_SIZE;
     }
 }
 

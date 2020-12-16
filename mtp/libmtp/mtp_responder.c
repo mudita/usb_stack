@@ -944,6 +944,8 @@ void mtp_responder_get_response(mtp_responder_t *mtp, uint16_t code, void *data_
     response->header.type = MTP_CONTAINER_TYPE_RESPONSE;
     response->header.response_code = code;
     response->header.transaction_id = mtp->transaction.id;
+    response->header.length = 12;
+
     memset(response->parameter, 0, 5*sizeof(uint32_t));
 
     if (code == MTP_RESPONSE_TRANSACTION_CANCELLED)
@@ -954,11 +956,22 @@ void mtp_responder_get_response(mtp_responder_t *mtp, uint16_t code, void *data_
         response->parameter[0] = mtp->storage.id;
         response->parameter[1] = 0xFFFFFFFF;
         response->parameter[2] = mtp->transaction.handle;
+        response->header.length += 3*sizeof(uint32_t);
     }
 
-    response->header.length = 12 + 5*sizeof(uint32_t);
     *size = response->header.length;
     log_info("RP> %s: %s (0x%x)", dbg_operation(mtp->transaction.opcode), dbg_result(code), code);
+}
+
+void mtp_responder_get_event(mtp_responder_t *mtp, uint16_t code, void *data_out, size_t *size)
+{
+    assert(mtp && data_out && size);
+
+    mtp_event_t *event = (mtp_event_t*)data_out;
+
+    event->length = sizeof(mtp_event_t);
+    event->code = code;
+    *size = event->length;
 }
 
 void mtp_responder_transaction_reset(mtp_responder_t *mtp)
@@ -978,15 +991,3 @@ void mtp_responder_transaction_reset(mtp_responder_t *mtp)
     log_info("mtp_responder: reset %u", (unsigned int) mtp->transaction.id);
 }
 
-void mtp_responder_get_event(mtp_responder_t *mtp, uint16_t code, void *data_out, size_t *size)
-{
-    assert(mtp && data_out && size);
-
-    mtp_resp_cntr_t *response = (mtp_resp_cntr_t*)data_out;
-    response->header.type = MTP_CONTAINER_TYPE_EVENT;
-    response->header.response_code = code;
-    response->header.transaction_id = mtp->transaction.id;
-    response->header.length = 12;
-    *size = response->header.length;
-    log_info("EVT> %s: %s", dbg_operation(mtp->transaction.opcode), dbg_result(code));
-}

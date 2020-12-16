@@ -163,4 +163,8 @@
 #   define USB_DEVICE_PRODUCT_ID (0x0622)
 #endif
 
+#ifndef USB_DEVICE_CONFIG_FORCE_FULL_SPEED
+#   define USB_DEVICE_CONFIG_FORCE_FULL_SPEED (0U)
+#endif
+
 #endif /* _USB_DEVICE_CONFIG_H_ */
