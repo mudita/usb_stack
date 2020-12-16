@@ -17,7 +17,11 @@
 #include "mtp_responder.h"
 #include "mtp_fs.h"
 
+#if 0
 #define PRINTF LOG_DEBUG
+#else
+#define PRINTF(...)
+#endif
 
 USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE) uint8_t rx_buffer[512];
 USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE) uint8_t tx_buffer[512];
@@ -190,7 +194,7 @@ static void send_response(usb_mtp_struct_t *mtpApp, uint16_t status)
     while((send_status = ScheduleSend(mtpApp, response, result_len)) == kStatus_USB_Busy && --retries)
         vTaskDelay(50/portTICK_PERIOD_MS);
     if (send_status != kStatus_USB_Success) {
-        PRINTF("[MTP]: Transfer failed: 0x%x", send_status);
+        PRINTF("[MTP] Transfer failed: 0x%x", send_status);
     }
 }
 
@@ -210,7 +214,7 @@ static void MtpTask(void *handle)
     mtp_responder_t* responder;
 
     if (!(mtpApp->mtp_fs = mtp_fs_alloc(NULL))) {
-        PRINTF("[MTP]: MTP FS initialization failed!");
+        PRINTF("[MTP] MTP FS initialization failed!");
         return;
     }
 
@@ -224,8 +228,6 @@ static void MtpTask(void *handle)
             mtpApp->mtp_fs);
     responder = mtpApp->responder;
 
-    PRINTF("[MTP] Initialized");
-
     xSemaphoreTake(mtpApp->join, portMAX_DELAY);
 
     while(!mtpApp->is_terminated) {
@@ -238,7 +240,8 @@ static void MtpTask(void *handle)
         xMessageBufferReset(mtpApp->inputBox);
         xMessageBufferReset(mtpApp->outputBox);
         mtp_responder_transaction_reset(mtpApp->responder);
-        PRINTF("MTP reset done");
+
+        PRINTF("[MTP] Ready");
 
         mtpApp->in_reset = false;
 
@@ -250,7 +253,7 @@ static void MtpTask(void *handle)
             poll_new_data(mtpApp, &request_len);
 
             if (request_len == 0) {
-                PRINTF("[MTP]: Expected MTP message. Reset: %s", mtpApp->in_reset ? "true" : "false");
+                PRINTF("[MTP] Expected MTP message. Reset: %s", mtpApp->in_reset ? "true" : "false");
                 continue;
             }
 
@@ -265,14 +268,14 @@ static void MtpTask(void *handle)
                     // request, which is valid MTP frame and has to be handled.
                     // Don't use timeout here (Windows host can freeze communication
                     // for a while, when assemling file at the end of transacion).
-                    PRINTF("[MTP]: Incomplete transfer. Expected more data");
+                    PRINTF("[MTP] Incomplete transfer. Expected more data");
                     mtp_responder_transaction_reset(mtpApp->responder);
                 } else {
                     if (status == MTP_RESPONSE_OK) {
-                        PRINTF("[MTP]: Incoming transfer complete");
+                        PRINTF("[MTP] Incoming transfer complete");
                         send_response(mtpApp, status);
                     } else if (status == MTP_RESPONSE_OBJECT_TOO_LARGE) {
-                        PRINTF("[MTP]: Object is too large");
+                        PRINTF("[MTP] Object is too large");
                         send_response(mtpApp, status);
                     }
                     continue;
@@ -289,7 +292,7 @@ static void MtpTask(void *handle)
                         // According to spec, initiator can't issue new transacation, before
                         // current one ends. In this case, assume initiator sends new frame
                         // with cancellation request.
-                        PRINTF("[MTP]: incoming message during data transfer phase. Abort.");
+                        PRINTF("[MTP] incoming message during data transfer phase. Abort.");
                         mtp_responder_transaction_reset(mtpApp->responder);
                         status = 0;
                         break;
@@ -307,7 +310,7 @@ static void MtpTask(void *handle)
 
                     if (!retries && !xMessageBufferIsEmpty(mtpApp->outputBox)
                             && !mtpApp->in_reset) {
-                        PRINTF("[MTP]: Outgoing data canceled (unable to send)");
+                        PRINTF("[MTP] Outgoing data canceled (unable to send)");
                         mtpApp->in_reset = true;
                         break;
                     }
@@ -385,7 +388,16 @@ void MtpDeinit(usb_mtp_struct_t *mtpApp)
 
 void MtpReset(usb_mtp_struct_t *mtpApp)
 {
-    PRINTF("[MTP] Info: bus reset");
+    mtpApp->configured = false;
+    mtpApp->in_reset = true;
+    if (speed == USB_SPEED_FULL)
+    {
+        PRINTF("[MTP] Reset to Full-Speed 12Mbps");
+        mtpApp->usb_buffer_size = HS_MTP_BULK_OUT_PACKET_SIZE;
+    } else {
+        PRINTF("[MTP] Reset to High-Speed 480Mbps");
+        mtpApp->usb_buffer_size = HS_MTP_BULK_OUT_PACKET_SIZE;
+    }
 }
 
 void MtpDetached(usb_mtp_struct_t *mtpApp)
