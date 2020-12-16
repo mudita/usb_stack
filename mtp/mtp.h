@@ -26,6 +26,7 @@ typedef struct {
 
 usb_status_t MtpUSBCallback(uint32_t event, void *param, void *userArg);
 usb_status_t MtpInit(usb_mtp_struct_t *mtpApp, class_handle_t classHandle);
+void MtpReset(usb_mtp_struct_t *mtpApp);
 void MtpDeinit(usb_mtp_struct_t *mtpApp);
 void MtpDetached(usb_mtp_struct_t *mtpApp);
 

@@ -119,6 +119,7 @@ static usb_status_t USB_DeviceCallback(usb_device_handle handle, uint32_t event,
             composite.currentConfiguration = 0U;
             error = kStatus_USB_Success;
             VirtualComReset(&composite.cdcVcom);
+            MtpReset(&composite.mtpApp);
 #if (defined(USB_DEVICE_CONFIG_EHCI) && (USB_DEVICE_CONFIG_EHCI > 0U))
             /* Get USB speed to configure the device, including max packet size and interval of the endpoints. */
             if (kStatus_USB_Success == USB_DeviceClassGetSpeed(CONTROLLER_ID, &composite.speed))

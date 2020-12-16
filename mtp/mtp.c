@@ -383,6 +383,11 @@ void MtpDeinit(usb_mtp_struct_t *mtpApp)
     }
 }
 
+void MtpReset(usb_mtp_struct_t *mtpApp)
+{
+    PRINTF("[MTP] Info: bus reset");
+}
+
 void MtpDetached(usb_mtp_struct_t *mtpApp)
 {
     PRINTF("[MTP] MTP detached");
