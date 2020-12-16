@@ -20,7 +20,11 @@ extern "C" {
 #   include "mtp_db.h"
 }
 
+#if 0
 #define LOG(...) LOG_INFO(__VA_ARGS__)
+#else
+#define LOG(...)
+#endif
 
 #define ROOT "/sys/user/music"
 

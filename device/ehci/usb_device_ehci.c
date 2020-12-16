@@ -81,7 +81,7 @@ USB_CONTROLLER_DATA static usb_device_ehci_dtd_struct_t
 static usb_device_ehci_state_struct_t g_UsbDeviceEhciState[USB_DEVICE_CONFIG_EHCI];
 
 /* Apply for whether the corresponding g_UsbDeviceEhciState is used or not, if used, it is set to 1, if not used, it is set to 0 */
-static uint8_t g_UsbDeviceEhciStateStatus[USB_DEVICE_CONFIG_EHCI]= {0}; 
+static uint8_t g_UsbDeviceEhciStateStatus[USB_DEVICE_CONFIG_EHCI]= {0};
 
 
 
@@ -202,6 +202,11 @@ static void USB_DeviceEhciSetDefaultState(usb_device_ehci_state_struct_t *ehciSt
 #endif /* USB_DEVICE_CONFIG_LOW_POWER_MODE */
          );
 
+#if defined(USB_DEVICE_CONFIG_FORCE_FULL_SPEED) && (USB_DEVICE_CONFIG_FORCE_FULL_SPEED > 0U)
+    /* Force Full-Speed device */
+    ehciState->registerBase->PORTSC1 |= (1<<USBHS_PORTSC1_PFSC_SHIFT);
+#endif
+
     /* Clear reset flag */
     ehciState->isResetting = 0U;
 }
@@ -266,7 +271,7 @@ static usb_status_t USB_DeviceEhciEndpointInit(usb_device_ehci_state_struct_t *e
         /* Set ZLT bit. */
         ehciState->qh[index].capabilttiesCharacteristicsUnion.capabilttiesCharacteristicsBitmap.zlt = !epInit->zlt;
     }
-    
+
     /* Enable the endpoint. */
     if ((USB_CONTROL_ENDPOINT == endpoint))
     {
@@ -413,7 +418,7 @@ static usb_status_t USB_DeviceEhciEndpointUnstall(usb_device_ehci_state_struct_t
     }
     /* Cancel the transfer of the endpoint */
     USB_DeviceEhciCancel(ehciState, ep);
-    
+
     return kStatus_USB_Success;
 }
 
@@ -621,7 +626,7 @@ static void USB_DeviceEhciInterruptTokenDone(usb_device_ehci_state_struct_t *ehc
                         if(!ehciState->qh[index].capabilttiesCharacteristicsUnion.capabilttiesCharacteristicsBitmap.zlt)
                         {
                             /*disable zlt after send zlt*/
-                            ehciState->qh[index].capabilttiesCharacteristicsUnion.capabilttiesCharacteristicsBitmap.zlt = 1U; 
+                            ehciState->qh[index].capabilttiesCharacteristicsUnion.capabilttiesCharacteristicsBitmap.zlt = 1U;
                         }
                     }
                 }
@@ -1115,19 +1120,19 @@ static usb_phydcd_status_t USB_DeviceEhciIsrPHYDCDCallback(void *handle, uint32_
     usb_phydcd_status_t error = kStatus_phydcd_Success;
     usb_device_callback_message_struct_t message;
     usb_device_ehci_state_struct_t *ehciState = (usb_device_ehci_state_struct_t *)handle;
-  
+
     if (ehciState == NULL)
     {
         return kStatus_phydcd_Error;
     }
-    
+
    /*messsgae buffer contain event information*/
     message.buffer = (uint8_t *)param;
     message.length = 0U;
     message.isSetup = 0U;
     message.code = kUSB_DeviceNotifyDcdDetectFinished;
     USB_DeviceNotificationTrigger(ehciState->deviceHandle, &message);
-            
+
     return error;
 }
 #endif
@@ -1139,19 +1144,19 @@ static usb_hsdcd_status_t USB_DeviceEhciIsrHSDCDCallback(void *handle, uint32_t 
     usb_hsdcd_status_t error = kStatus_hsdcd_Success;
     usb_device_callback_message_struct_t message;
     usb_device_ehci_state_struct_t *ehciState = (usb_device_ehci_state_struct_t *)handle;
-  
+
     if (ehciState == NULL)
     {
         return kStatus_hsdcd_Error;
     }
-    
+
    /*messsgae buffer contain event information*/
     message.buffer = (uint8_t *)param;
     message.length = 0U;
     message.isSetup = 0U;
     message.code = kUSB_DeviceNotifyDcdDetectFinished;
     USB_DeviceNotificationTrigger(ehciState->deviceHandle, &message);
-            
+
     return error;
 }
 
@@ -1282,7 +1287,7 @@ usb_status_t USB_DeviceEhciInit(uint8_t controllerId,
     {
         return kStatus_USB_Error;
     }
-        
+
     if (ehciState->registerBase->OTGSC & USBHS_OTGSC_BSV_MASK)
     {
         /* Device is connected to a host. */
@@ -1319,7 +1324,7 @@ usb_status_t USB_DeviceEhciDeinit(usb_device_controller_handle ehciHandle)
             g_UsbDeviceEhciStateStatus[instance] = 0;
         }
     }
-    
+
     /* Disable all interrupt. */
     ehciState->registerBase->USBINTR = 0U;
     /* Stop the device functionality. */
@@ -1436,11 +1441,11 @@ usb_status_t USB_DeviceEhciCancel(usb_device_controller_handle ehciHandle, uint8
     /* Get the first dtd */
     currentDtd =
         (usb_device_ehci_dtd_struct_t *)((uint32_t)ehciState->dtdHard[index] & USB_DEVICE_ECHI_DTD_POINTER_MASK);
-   
-    /* In the next loop, USB_DeviceNotificationTrigger function may trigger a new transfer and the context always 
+
+    /* In the next loop, USB_DeviceNotificationTrigger function may trigger a new transfer and the context always
      * keep in the critical section, so the Dtd sequence would still keep non-empty and the loop would be endless.
      * We set the Dtd's dtdInvalid in this while and add an if statement in the next loop so that this issue could
-     * be fixed.  
+     * be fixed.
      */
     while (currentDtd)
     {
@@ -1727,7 +1732,7 @@ usb_status_t USB_DeviceEhciControl(usb_device_controller_handle ehciHandle, usb_
             }
             break;
 #endif
-#if (defined(USB_DEVICE_CONFIG_CHARGER_DETECT) && (USB_DEVICE_CONFIG_CHARGER_DETECT > 0U)) 
+#if (defined(USB_DEVICE_CONFIG_CHARGER_DETECT) && (USB_DEVICE_CONFIG_CHARGER_DETECT > 0U))
 
         case kUSB_DeviceControlUpdateHwTick:
             /*udpate 1ms time tick*/
