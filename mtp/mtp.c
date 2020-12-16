@@ -31,8 +31,8 @@
 USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE) uint8_t rx_buffer[HS_MTP_BULK_IN_PACKET_SIZE];
 USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE) uint8_t tx_buffer[HS_MTP_BULK_OUT_PACKET_SIZE];
 USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE) uint8_t event_response[HS_MTP_INTR_IN_PACKET_SIZE];
-static uint8_t mtp_request[sizeof(rx_buffer)];
-static uint8_t mtp_response[sizeof(tx_buffer)];
+USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE) static uint8_t mtp_request[sizeof(rx_buffer)];
+USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE) static uint8_t mtp_response[sizeof(tx_buffer)];
 
 static mtp_device_info_t dummy_device = {
     .manufacturer = "Mudita",
@@ -41,16 +41,10 @@ static mtp_device_info_t dummy_device = {
     .serial = "0123456789ABCDEF0123456789ABCDEF",
 };
 
-static size_t USBFrameSize(void)
-{
-    /* TODO: USB_DeviceGetSpeed() */
-    return 64;
-}
-
 static usb_status_t RescheduleRecv(usb_mtp_struct_t *mtpApp)
 {
     // -4 because length of message needs to be stored too
-    size_t endpoint_size = USBFrameSize();
+    size_t endpoint_size = mtpApp->usb_buffer_size;
     usb_status_t error = kStatus_USB_Success;
     if (!USB_DeviceClassMtpIsBusy(mtpApp->classHandle, USB_MTP_BULK_OUT_ENDPOINT)
             && !mtpApp->in_reset) {
@@ -71,7 +65,7 @@ static size_t SliceToStream(usb_mtp_struct_t *mtpApp, void *buffer, size_t lengt
     size_t remaining = length;
 
     while (remaining > 0) {
-        size_t to_send = (remaining < USBFrameSize()) ? remaining : USBFrameSize();
+        size_t to_send = (remaining < mtpApp->usb_buffer_size) ? remaining : mtpApp->usb_buffer_size;
         size_t buffered = xMessageBufferSend(mtpApp->outputBox, &((uint8_t*)buffer)[total], to_send, 0);
         if (buffered <= 0) {
             break;
@@ -119,12 +113,12 @@ static size_t Send(usb_mtp_struct_t *mtpApp, void *buffer, size_t length)
 
         taskEXIT_CRITICAL();
 
-        size_t send_now = (length < USBFrameSize()) ? length : USBFrameSize();
+        size_t send_now = (length < mtpApp->usb_buffer_size) ? length : mtpApp->usb_buffer_size;
         size_t remaining = (length - send_now);
         size_t buffered;
 
         if (remaining) {
-            buffered = SliceToStream(mtpApp, &((uint8_t*)buffer)[USBFrameSize()], remaining);
+            buffered = SliceToStream(mtpApp, &((uint8_t*)buffer)[mtpApp->usb_buffer_size], remaining);
             sent = send_now + buffered;
         } else {
             sent = send_now;
@@ -442,7 +436,7 @@ void MtpDeinit(usb_mtp_struct_t *mtpApp)
     }
 }
 
-void MtpReset(usb_mtp_struct_t *mtpApp)
+void MtpReset(usb_mtp_struct_t *mtpApp, uint8_t speed)
 {
     mtpApp->configured = false;
     mtpApp->in_reset = true;

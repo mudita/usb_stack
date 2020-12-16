@@ -356,10 +356,14 @@ void VirtualComDetached(usb_cdc_vcom_struct_t *cdcVcom)
     call_user_cb(cdcVcom, VCOM_DETACHED);
 }
 
-void VirtualComReset(usb_cdc_vcom_struct_t *cdcVcom)
+void VirtualComReset(usb_cdc_vcom_struct_t *cdcVcom, uint8_t speed)
 {
     PRINTF("[VCOM] Info: bus reset");
     cdcVcom->configured = false;
+    if (speed == USB_SPEED_FULL)
+        cdcVcom->usb_buffer_size = HS_CDC_VCOM_BULK_OUT_PACKET_SIZE;
+    else
+        cdcVcom->usb_buffer_size = HS_CDC_VCOM_BULK_OUT_PACKET_SIZE;
     xStreamBufferReceiveFromISR(cdcVcom->outputStream, s_currSendBuf, sizeof(s_currSendBuf), 0);
     call_user_cb(cdcVcom, VCOM_RESET);
 }
@@ -434,7 +438,7 @@ void VirtualComDeinit(usb_cdc_vcom_struct_t *cdcVcom)
 int VirtualComSend(usb_cdc_vcom_struct_t *cdcVcom, const void* data, size_t length)
 {
     size_t result = 0;
-    const size_t endpoint_size = sizeof(s_currSendBuf);
+    const size_t endpoint_size = cdcVcom->usb_buffer_size;
     usb_status_t status;
     if (!cdcVcom->configured || !length) {
         return 0;
