@@ -52,6 +52,7 @@ typedef struct _usb_cdc_vcom_struct
     uint8_t startTransactions;      /* A flag to indicate whether a CDC device is ready to transmit and receive data. */
     uint8_t currentConfiguration;   /* Current configuration value. */
 
+    size_t usb_buffer_size;
     StreamBufferHandle_t inputStream;
     StreamBufferHandle_t outputStream;
 
@@ -89,7 +90,7 @@ void VirtualComDetached(usb_cdc_vcom_struct_t *cdcVcom);
 /**
  * @brief Notify VirtualCom that bus reset event occured
  */
-void VirtualComReset(usb_cdc_vcom_struct_t *cdcVcom);
+void VirtualComReset(usb_cdc_vcom_struct_t *cdcVcom, uint8_t speed);
 
 /**
  * @brief Queue data to send

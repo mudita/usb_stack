@@ -14,7 +14,11 @@
 #include "usb_device_descriptor.h"
 #include "composite.h"
 
+#if 0
 #define PRINTF LOG_DEBUG
+#else
+#define PRINTF(...)
+#endif
 
 #if (VCOM_INPUT_STREAM_SIZE < HS_CDC_VCOM_BULK_IN_PACKET_SIZE) || \
     (VCOM_OUTPUT_STREAM_SIZE < HS_CDC_VCOM_BULK_OUT_PACKET_SIZE)
@@ -346,16 +350,20 @@ usb_status_t VirtualComUSBCallback(uint32_t event, void *param, void *userArg)
 
 void VirtualComDetached(usb_cdc_vcom_struct_t *cdcVcom)
 {
-    PRINTF("[VCOM] Info: detached\r\n");
+    PRINTF("[VCOM] Info: detached");
     cdcVcom->configured = false;
     xStreamBufferReceiveFromISR(cdcVcom->outputStream, s_currSendBuf, sizeof(s_currSendBuf), 0);
     call_user_cb(cdcVcom, VCOM_DETACHED);
 }
 
-void VirtualComReset(usb_cdc_vcom_struct_t *cdcVcom)
+void VirtualComReset(usb_cdc_vcom_struct_t *cdcVcom, uint8_t speed)
 {
-    PRINTF("[VCOM] Info: reset\r\n");
+    PRINTF("[VCOM] Info: bus reset");
     cdcVcom->configured = false;
+    if (speed == USB_SPEED_FULL)
+        cdcVcom->usb_buffer_size = FS_CDC_VCOM_BULK_OUT_PACKET_SIZE;
+    else
+        cdcVcom->usb_buffer_size = HS_CDC_VCOM_BULK_OUT_PACKET_SIZE;
     xStreamBufferReceiveFromISR(cdcVcom->outputStream, s_currSendBuf, sizeof(s_currSendBuf), 0);
     call_user_cb(cdcVcom, VCOM_RESET);
 }
@@ -376,7 +384,7 @@ usb_status_t VirtualComUSBSetConfiguration(usb_cdc_vcom_struct_t *cdcVcom, uint8
     {
         cdcVcom->configured = true;
 
-        PRINTF("[VCOM] Info: configured\r\n");
+        PRINTF("[VCOM] Info: configured");
         /* Schedule buffer for receive */
         RescheduleRecv(cdcVcom);
         call_user_cb(cdcVcom, VCOM_CONFIGURED);
@@ -412,7 +420,7 @@ usb_status_t VirtualComInit(usb_cdc_vcom_struct_t *cdcVcom, class_handle_t class
 void VirtualComDeinit(usb_cdc_vcom_struct_t *cdcVcom)
 {
     if (!cdcVcom || !cdcVcom->inputStream || !cdcVcom->inputStream) {
-        PRINTF("[VCOM] Attempt to deinit not initialized virtual com\r\n");
+        PRINTF("[VCOM] Attempt to deinit not initialized virtual com");
         return;
     }
     vStreamBufferDelete(cdcVcom->inputStream);
@@ -424,13 +432,13 @@ void VirtualComDeinit(usb_cdc_vcom_struct_t *cdcVcom)
     cdcVcom->cdcAcmHandle = NULL;
     cdcVcom->configured = false;
 
-    PRINTF("[VCOM] Deinitialized\r\n");
+    PRINTF("[VCOM] Deinitialized");
 }
 
 int VirtualComSend(usb_cdc_vcom_struct_t *cdcVcom, const void* data, size_t length)
 {
     size_t result = 0;
-    const size_t endpoint_size = sizeof(s_currSendBuf);
+    const size_t endpoint_size = cdcVcom->usb_buffer_size;
     usb_status_t status;
     if (!cdcVcom->configured || !length) {
         return 0;
