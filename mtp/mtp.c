@@ -443,7 +443,7 @@ void MtpReset(usb_mtp_struct_t *mtpApp, uint8_t speed)
     if (speed == USB_SPEED_FULL)
     {
         PRINTF("[MTP] Reset to Full-Speed 12Mbps");
-        mtpApp->usb_buffer_size = HS_MTP_BULK_OUT_PACKET_SIZE;
+        mtpApp->usb_buffer_size = FS_MTP_BULK_OUT_PACKET_SIZE;
     } else {
         PRINTF("[MTP] Reset to High-Speed 480Mbps");
         mtpApp->usb_buffer_size = HS_MTP_BULK_OUT_PACKET_SIZE;
