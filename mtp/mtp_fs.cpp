@@ -6,7 +6,6 @@
 #include <string.h>
 #include <assert.h>
 #include "FreeRTOS.h"
-#include <vfs.hpp>
 
 #include "ff_eMMC_user_disk.hpp"
 
@@ -72,13 +71,8 @@ static const char *abspath(const char *filename)
 static const mtp_storage_properties_t* get_disk_properties(void* arg)
 {
     fs_data_t *data = (fs_data_t*)arg;
-    vfs::FilesystemStats stats;
-
-    stats = vfs.getFilesystemStats();
     // TODO: stats are for entire storage. If MTP is intended to expose
     // only one directory, these stats should be recalculated
-    data->freespace = stats.freeMbytes*1024llu*1024llu;
-    data->capacity = stats.totalMbytes*1024llu*1024llu;
 
     disk_properties.capacity = data->capacity;
 
@@ -90,10 +84,7 @@ static const mtp_storage_properties_t* get_disk_properties(void* arg)
 static uint64_t get_free_space(void *arg)
 {
     // TODO: see get_disk_properties
-    vfs::FilesystemStats stats;
     uint64_t size = 0;
-    stats = vfs.getFilesystemStats();
-    size = stats.freeMbytes*1024llu*1024llu;
     //LOG("Free space: %llu KB", size / 1024);
     return size;
 }
