@@ -112,7 +112,7 @@ static usb_status_t OnIncomingFrame(usb_mtp_struct_t* mtpApp, void *param)
 
 static usb_status_t OnOutgoingFrameSent(usb_mtp_struct_t* mtpApp, void *param)
 {
-    usb_device_endpoint_callback_message_struct_t *epCbParam = (usb_device_endpoint_callback_message_struct_t*) param;
+    //usb_device_endpoint_callback_message_struct_t *epCbParam = (usb_device_endpoint_callback_message_struct_t*) param;
 
     if (mtpApp->configured) {
         size_t length = xMessageBufferReceiveFromISR(mtpApp->outputBox, tx_buffer, sizeof(tx_buffer), NULL);

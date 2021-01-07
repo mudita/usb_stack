@@ -278,7 +278,7 @@ const uint16_t MTP_SUPPORTED_PLAYBACK_FORMATS[] =
 
 bool is_format_code_supported(uint16_t format_code)
 {
-    int i;
+    unsigned i;
     if (format_code == 0 || format_code == 0xffff)
         return true;
 

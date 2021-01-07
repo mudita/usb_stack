@@ -8,7 +8,11 @@
 #include "FreeRTOS.h"
 #include <vfs.hpp>
 
-#include "ff_eMMC_user_disk.hpp"
+#include <cstdio>
+#include <sys/types.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 extern "C" {
 #   include "mtp_responder.h"
@@ -30,8 +34,8 @@ static mtp_storage_properties_t disk_properties =  {
 
 struct mtp_fs {
     struct mtp_db *db;
-    FF_FindData_t find_data;
-    FF_FILE *file;
+    DIR* find_data;
+    std::FILE* file;
 };
 
 typedef struct {
@@ -47,19 +51,20 @@ static int is_dot(const char *name) {
     return rv;
 }
 
-static uint32_t count_files(FF_FindData_t *find_data)
+static uint32_t count_files(DIR * find_data)
 {
     uint32_t count = 0;
-    memset(find_data, 0, sizeof(FF_FindData_t));
-    if (!ff_findfirst(ROOT, find_data)) {
-        do {
-            if (is_dot(find_data->pcFileName))
-                continue;
-           count++;
-        } while (!ff_findnext(find_data));
+    rewinddir(find_data);
+    struct dirent *de;
+    while ((de=readdir(find_data)))
+    {
+        if (is_dot(de->d_name))
+            continue;
+       count++;
     }
     return count;
 }
+
 static const char *abspath(const char *filename)
 {
     static char abs[128];
@@ -102,7 +107,6 @@ static uint32_t fs_find_first(void *arg, uint32_t root, uint32_t *count)
 {
     struct mtp_fs *fs = (struct mtp_fs*)arg;
     uint32_t handle;
-    int result;
     // TODO: list dir is not a good choose, as it allocates
     // memory for all files from directory
     // auto list = vfs.listdir(ROOT);
@@ -112,31 +116,31 @@ static uint32_t fs_find_first(void *arg, uint32_t root, uint32_t *count)
     if (root != 0 && root != 0xFFFFFFFF)
         return 0;
 
-    FF_FindData_t *find_data = &fs->find_data;
-    *count = count_files(find_data);
+    fs->find_data = opendir(ROOT);
+    if(!fs->find_data)
+    {
+        LOG("Opendir failed");
+        return 0;
+    }
+    *count = count_files(fs->find_data);
 
     // empty directory
     if (*count == 0)
         return 0;
 
     LOG("found: %u files:", (unsigned int) *count);
-
-    memset(find_data, 0, sizeof(FF_FindData_t));
-    if (ff_findfirst(ROOT, find_data)) {
-        LOG("ff_findfirst failed");
+    rewinddir(fs->find_data);
+    struct dirent *de;
+    while( (de=readdir(fs->find_data)) &&  is_dot(de->d_name)) {
+        LOG("skip: %s", de->d_name);
+    }
+    if( !de )
+    {
+        LOG("No files found");
+        *count = 0;
         return 0;
     }
-
-    while (is_dot(find_data->pcFileName)) {
-        LOG("skip: %s", find_data->pcFileName);
-        if (ff_findnext(find_data)) {
-            LOG("No files found");
-            *count = 0;
-            return 0;
-        }
-    }
-
-    handle = mtp_db_add(fs->db, find_data->pcFileName);
+    handle = mtp_db_add(fs->db, de->d_name);
     return handle;
 }
 
@@ -144,12 +148,11 @@ static uint32_t fs_find_next(void* arg)
 {
     uint32_t handle;
     struct mtp_fs *fs = (struct mtp_fs*)arg;
-    FF_FindData_t *find_data = &fs->find_data;
-
-    while (!ff_findnext(find_data)) {
-        if (is_dot(find_data->pcFileName))
+    struct dirent* de;
+    while ((de=readdir(fs->find_data))) {
+        if (is_dot(de->d_name))
             continue;
-        handle = mtp_db_add(fs->db, find_data->pcFileName);
+        handle = mtp_db_add(fs->db, de->d_name);
         return handle;
     }
     LOG("Done. No more files");
@@ -169,7 +172,7 @@ static uint16_t ext_to_format_code(const char *filename)
 
 static int fs_stat(void *arg, uint32_t handle, mtp_object_info_t *info)
 {
-    FF_Stat_t stat;
+    struct stat statbuf;
     struct mtp_fs *fs = (struct mtp_fs*)arg;
     const char *filename = mtp_db_get(fs->db, handle);
 
@@ -180,13 +183,13 @@ static int fs_stat(void *arg, uint32_t handle, mtp_object_info_t *info)
 
     LOG("[%u]: Get info for: %s", (unsigned int)handle, filename);
 
-    if (!ff_stat(abspath(filename), &stat)) {
+    if (stat(abspath(filename), &statbuf)==0) {
         memset(info, 0, sizeof(mtp_object_info_t));
         info->storage_id = 0x00010001;
         info->created = 1580371617;
         info->modified = 1580371617;
         info->format_code = ext_to_format_code(filename);
-        info->size = (uint64_t)stat.st_size;
+        info->size = (uint64_t)statbuf.st_size;
         *(uint32_t*)(info->uuid) = handle;
         strncpy(info->filename, filename, 64);
         return 0;
@@ -206,13 +209,13 @@ static int fs_rename(void *arg, uint32_t handle, const char *new_name)
     if (!filename)
         return -1;
 
-    status = ff_rename(filename, new_name, pdFALSE);
-    if (!status) {
+    status = rename(filename, new_name);
+    if (status==0) {
         mtp_db_update(fs->db, handle, new_name);
         LOG("[%u]: Rename: %s -> %s", (unsigned int)handle, filename, new_name);
+    } else {
+        LOG("[%u]: Rename: %s -> %s FAILED", (unsigned int) handle, filename, new_name);
     }
-
-    LOG("[%u]: Rename: %s -> %s FAILED", (unsigned int)handle, filename, new_name);
     return status;
 }
 
@@ -232,12 +235,12 @@ static int fs_create(void *arg, const mtp_object_info_t *info, uint32_t *handle)
         return -1;
     }
 
-    while(!(fs->file = ff_fopen(abspath(info->filename), "w"))) {
+    while(!(fs->file = std::fopen(abspath(info->filename), "w"))) {
         LOG("[]: freertos-fat error - ff_open(w) (create). Flush and wait");
         // TODO: FF_SDDiskFlush(fs->disk);
     }
 
-    ff_fclose(fs->file);
+    std::fclose(fs->file);
     fs->file = NULL;
     *handle = new_handle;
     LOG("[%u]: Created: %s", (unsigned int)*handle, info->filename);
@@ -251,10 +254,7 @@ static int fs_remove(void *arg, uint32_t handle)
     if (!filename) {
         return -1;
     }
-
-    while(!ff_remove(abspath(filename))) {
-        //TODO: FF_SDDiskFlush(fs->disk);
-    }
+    unlink(abspath(filename));
 
     LOG("[%u]: Removed: %s", (unsigned int)handle, filename);
     mtp_db_del(fs->db, handle);
@@ -274,7 +274,7 @@ static int fs_open(void *arg, uint32_t handle, const char *mode)
         return -1;
     }
 
-    while(!(fs->file = ff_fopen(abspath(filename), mode))) {
+    while(!(fs->file = std::fopen(abspath(filename), mode))) {
         LOG("[%u]: Fail to open: %s [%s]. Flush and wait", (unsigned int)handle, filename, mode);
         // TODO: FF_SDDiskFlush(fs->disk);
     }
@@ -292,7 +292,7 @@ static int fs_read(void *arg, void *buffer, size_t count)
     if (!fs->file)
         return -1;
 
-    while ((read = ff_fread(buffer, 1, count, fs->file)) <= 0) {
+    while ((read = std::fread(buffer, 1, count, fs->file)) <= 0) {
         LOG("[]: Fail to read");
         //TODO: FF_SDDiskFlush(fs->disk);
     }
@@ -305,7 +305,7 @@ static int fs_write(void *arg, void *buffer, size_t count)
     if (!fs->file)
         return -1;
 
-    while(ff_fwrite(buffer, count, 1, fs->file) != 1) {
+    while(std::fwrite(buffer, count, 1, fs->file) != 1) {
         LOG("[]: Fail to write");
         //TODO: FF_SDDiskFlush(fs->disk);
     }
@@ -316,7 +316,7 @@ static void fs_close(void *arg)
 {
     struct mtp_fs *fs = (struct mtp_fs*)arg;
     if (fs->file) {
-        ff_fclose(fs->file);
+        std::fclose(fs->file);
         LOG("[]: Closed");
         fs->file = NULL;
     }
@@ -344,6 +344,11 @@ extern "C" struct mtp_fs* mtp_fs_alloc(void *disk)
     if (fs) {
         memset(fs, 0, sizeof(struct mtp_fs));
         if (!(fs->db = mtp_db_alloc())) {
+            vPortFree(fs);
+            return NULL;
+        }
+        fs->find_data = opendir(ROOT);
+        if (!fs->find_data) {
             vPortFree(fs);
             return NULL;
         }

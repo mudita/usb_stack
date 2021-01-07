@@ -58,6 +58,7 @@ typedef struct {
     uint16_t id;
 } dbg_map_entry_t;
 
+static const char* dbg_operation(uint16_t op) __attribute((used));
 static const char* dbg_operation(uint16_t op)
 {
     static const dbg_map_entry_t ops[] = {
@@ -112,6 +113,7 @@ static const char* dbg_operation(uint16_t op)
     return "Operation not found!";
 }
 
+static const char* dbg_event(uint16_t event) __attribute__((unused));
 static const char* dbg_event(uint16_t event)
 {
     static const dbg_map_entry_t events[] = {
@@ -145,6 +147,7 @@ static const char* dbg_event(uint16_t event)
     return "Event not found!";
 }
 
+static const char* dbg_result(uint16_t result) __attribute__((used));
 static const char* dbg_result(uint16_t result)
 {
     static const dbg_map_entry_t results[] = {
@@ -369,7 +372,7 @@ static uint16_t operation_get_object_handles(mtp_responder_t *mtp, const mtp_op_
     {
         uint32_t available = (mtp->buf_size - MTP_CONTAINER_HEADER_SIZE) / sizeof(uint32_t) - 1; // -1 beacuse 4 bytes for array length
         uint32_t fit_to_buf = count > available ? available : count;
-        int i;
+        unsigned i;
 
         *ptr++ = handle;
         // (fit_to_buf - 1) because first already is in buffer
@@ -843,7 +846,7 @@ size_t mtp_responder_get_data(mtp_responder_t *mtp)
         {
             uint32_t available = (mtp->buf_size) / sizeof(uint32_t);
             uint32_t *ptr = (uint32_t*)mtp->buffer;
-            int i;
+            uint32_t i;
             for (i = 0; i < available; i++, ptr++)
             {
                 *ptr = mtp->storage.api->find_next(mtp->storage.api_arg);
