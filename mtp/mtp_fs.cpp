@@ -6,13 +6,14 @@
 #include <string.h>
 #include <assert.h>
 #include "FreeRTOS.h"
-#include <vfs.hpp>
 
 #include <cstdio>
 #include <sys/types.h>
 #include <dirent.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <sys/statvfs.h>
+#include <purefs/filesystem_paths.hpp>
 
 extern "C" {
 #   include "mtp_responder.h"
@@ -77,13 +78,14 @@ static const char *abspath(const char *filename)
 static const mtp_storage_properties_t* get_disk_properties(void* arg)
 {
     fs_data_t *data = (fs_data_t*)arg;
-    vfs::FilesystemStats stats;
 
-    stats = vfs.getFilesystemStats();
+    struct statvfs stvfs {};
+    statvfs( purefs::dir::getRootDiskPath().c_str(), &stvfs);
+
     // TODO: stats are for entire storage. If MTP is intended to expose
     // only one directory, these stats should be recalculated
-    data->freespace = stats.freeMbytes*1024llu*1024llu;
-    data->capacity = stats.totalMbytes*1024llu*1024llu;
+    data->freespace = stvfs.f_bsize * stvfs.f_bavail;
+    data->capacity =  stvfs.f_frsize * stvfs.f_blocks;
 
     disk_properties.capacity = data->capacity;
 
@@ -95,10 +97,11 @@ static const mtp_storage_properties_t* get_disk_properties(void* arg)
 static uint64_t get_free_space(void *arg)
 {
     // TODO: see get_disk_properties
-    vfs::FilesystemStats stats;
     uint64_t size = 0;
-    stats = vfs.getFilesystemStats();
-    size = stats.freeMbytes*1024llu*1024llu;
+    struct statvfs stvfs {};
+    statvfs( purefs::dir::getRootDiskPath().c_str(), &stvfs);
+
+    size = uint64_t(stvfs.f_bsize) * stvfs.f_bavail;
     //LOG("Free space: %llu KB", size / 1024);
     return size;
 }
