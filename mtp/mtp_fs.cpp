@@ -15,7 +15,7 @@ extern "C" {
 #   include "mtp_db.h"
 }
 
-#if 0
+#if 1
 #define LOG(...) LOG_INFO(__VA_ARGS__)
 #else
 #define LOG(...)
@@ -36,6 +36,10 @@ struct mtp_fs {
     struct mtp_db *db;
     FF_FindData_t find_data;
     FF_FILE *file;
+    void*  mtpTestBuffer;
+    size_t mtpTestBufferSize;
+    size_t mtpTestBufferBytesWritten;
+    size_t mtpTestBufferBytesRead;
 };
 
 typedef struct {
@@ -241,10 +245,34 @@ static int fs_create(void *arg, const mtp_object_info_t *info, uint32_t *handle)
         // TODO: FF_SDDiskFlush(fs->disk);
     }
 
+    if (ff_truncate(abspath(info->filename), info->size) != 0) {
+        LOG("[]: Fail to set file size");
+    }
+    else {
+         LOG("[]: Set file size %lu kB", (uint32_t)info->size/1024);
+    }
+
+    // if (ff_fseek(fs->file, 0, FF_SEEK_SET) != 0) {
+    //     LOG("[]: Fail to set file offset to begin");
+    // }
+
+    if (fs->mtpTestBuffer) {
+        free(fs->mtpTestBuffer);
+
+        fs->mtpTestBuffer = NULL;
+        fs->mtpTestBufferSize = 0;
+    }
+
+    fs->mtpTestBufferBytesWritten = 0;
+    fs->mtpTestBufferBytesRead = 0;
+
+    fs->mtpTestBuffer = calloc(1, info->size);
+    fs->mtpTestBufferSize = info->size;
+
     ff_fclose(fs->file);
     fs->file = NULL;
     *handle = new_handle;
-    LOG("[%u]: Created: %s", (unsigned int)*handle, info->filename);
+    LOG("[%u]: Created: %s of %lu kB", (unsigned int)*handle, info->filename, (uint32_t)info->size/1024);
     return 0;
 }
 
@@ -300,6 +328,28 @@ static int fs_read(void *arg, void *buffer, size_t count)
         LOG("[]: Fail to read");
         //TODO: FF_SDDiskFlush(fs->disk);
     }
+
+    fs->mtpTestBufferBytesRead += read;
+
+    return read;
+}
+
+static int fs_read_null(void *arg, void *buffer, size_t count)
+{
+    struct mtp_fs *fs = (struct mtp_fs*)arg;
+    size_t read;
+
+    if (!fs->file)
+        return -1;
+
+    read = count; // MIN(fs->mtpTestBufferSize, count);
+
+    // if (fs->mtpTestBuffer) {
+    //     memcpy(buffer, fs->mtpTestBuffer, read);
+    // }
+
+    fs->mtpTestBufferBytesRead += read;
+
     return read;
 }
 
@@ -313,6 +363,25 @@ static int fs_write(void *arg, void *buffer, size_t count)
         LOG("[]: Fail to write");
         //TODO: FF_SDDiskFlush(fs->disk);
     }
+
+    fs->mtpTestBufferBytesWritten += count;
+
+    return 0;
+}
+
+static int fs_write_null(void *arg, void *buffer, size_t count)
+{
+    struct mtp_fs *fs = (struct mtp_fs*)arg;
+    if (!fs->file)
+        return -1;
+
+    // if (count && fs->mtpTestBuffer) {
+    //     count = MIN(fs->mtpTestBufferSize, count);
+    //     memcpy(fs->mtpTestBuffer, buffer, count);
+    // }
+
+    fs->mtpTestBufferBytesWritten += count;
+
     return 0;
 }
 
@@ -324,6 +393,23 @@ static void fs_close(void *arg)
         LOG("[]: Closed");
         fs->file = NULL;
     }
+
+    if (fs->mtpTestBufferBytesWritten) {
+        LOG("[]: Total writen: %u kB",fs->mtpTestBufferBytesWritten/1024);
+    }
+
+    if (fs->mtpTestBufferBytesRead) {
+        LOG("[]: Total read: %u kB",fs->mtpTestBufferBytesRead/1024);
+    }
+
+    if (fs->mtpTestBuffer) {
+        free(fs->mtpTestBuffer);
+        fs->mtpTestBufferSize = 0;
+        fs->mtpTestBuffer = NULL;
+    }
+
+    fs->mtpTestBufferBytesWritten = 0;
+    fs->mtpTestBufferBytesRead = 0;
 }
 
 extern "C" const struct mtp_storage_api simple_fs_api =
@@ -338,7 +424,7 @@ extern "C" const struct mtp_storage_api simple_fs_api =
     .remove = fs_remove,
     .open = fs_open,
     .read = fs_read,
-    .write = fs_write,
+    .write = fs_write_null,
     .close = fs_close
 };
 
