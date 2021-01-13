@@ -83,9 +83,16 @@ static uint8_t s_currSendBuf[HS_CDC_VCOM_BULK_OUT_PACKET_SIZE];
 
 static usb_status_t RescheduleRecv(usb_cdc_vcom_struct_t *cdcVcom)
 {
-    size_t stream_space = xStreamBufferSpacesAvailable(cdcVcom->inputStream);
-    size_t endpoint_size = sizeof(s_currRecvBuf);
+    size_t stream_space;
+    size_t endpoint_size;
     usb_status_t error = kStatus_USB_Busy;
+
+    if (!cdcVcom || !cdcVcom->configured || !cdcVcom->cdcAcmHandle) {
+        return kStatus_USB_InvalidHandle;
+    }
+
+    stream_space = xStreamBufferSpacesAvailable(cdcVcom->inputStream);
+    endpoint_size = sizeof(s_currRecvBuf);
 
     if (stream_space >= endpoint_size)  {
         if ((error = USB_DeviceCdcAcmRecv(cdcVcom->cdcAcmHandle,
@@ -105,6 +112,10 @@ static usb_status_t OnSendCompleted(usb_cdc_vcom_struct_t *cdcVcom,
 {
     usb_status_t error = kStatus_USB_Success;
     size_t to_send;
+
+    if (!cdcVcom || !cdcVcom->cdcAcmHandle) {
+        return kStatus_USB_InvalidHandle;
+    }
 
     if (cdcVcom->configured) {
         to_send = xStreamBufferReceiveFromISR(cdcVcom->outputStream,
@@ -137,6 +148,11 @@ static usb_status_t OnRecvCompleted(usb_cdc_vcom_struct_t *cdcVcom,
         usb_device_endpoint_callback_message_struct_t *param)
 {
     usb_status_t error = kStatus_USB_Success;
+
+    if (!cdcVcom || !cdcVcom->cdcAcmHandle) {
+        return kStatus_USB_InvalidHandle;
+    }
+
     if (cdcVcom->configured) {
         if (cdcVcom->startTransactions)
         {
@@ -177,6 +193,10 @@ usb_status_t VirtualComUSBCallback(uint32_t event, void *param, void *userArg)
     usb_cdc_acm_info_t *acmInfo = &s_usbCdcAcmInfo;
     usb_device_cdc_acm_request_param_struct_t *acmReqParam;
     usb_device_endpoint_callback_message_struct_t *epCbParam;
+
+    if (!cdcVcom || !cdcVcom->configured || !cdcVcom->cdcAcmHandle) {
+        return kStatus_USB_InvalidHandle;
+    }
 
     acmReqParam = (usb_device_cdc_acm_request_param_struct_t *)param;
     epCbParam = (usb_device_endpoint_callback_message_struct_t *)param;
@@ -352,6 +372,7 @@ void VirtualComDetached(usb_cdc_vcom_struct_t *cdcVcom)
 {
     PRINTF("[VCOM] Info: detached");
     cdcVcom->configured = false;
+
     xStreamBufferReceiveFromISR(cdcVcom->outputStream, s_currSendBuf, sizeof(s_currSendBuf), 0);
     call_user_cb(cdcVcom, VCOM_DETACHED);
 }
@@ -360,6 +381,7 @@ void VirtualComReset(usb_cdc_vcom_struct_t *cdcVcom, uint8_t speed)
 {
     PRINTF("[VCOM] Info: bus reset");
     cdcVcom->configured = false;
+
     if (speed == USB_SPEED_FULL)
         cdcVcom->usb_buffer_size = FS_CDC_VCOM_BULK_OUT_PACKET_SIZE;
     else
@@ -403,9 +425,11 @@ usb_status_t VirtualComUSBSetConfiguration(usb_cdc_vcom_struct_t *cdcVcom, uint8
  */
 usb_status_t VirtualComInit(usb_cdc_vcom_struct_t *cdcVcom, class_handle_t classHandle, userCbFunc callback, void *userArg)
 {
+    taskENTER_CRITICAL();
     cdcVcom->cdcAcmHandle = classHandle;
     cdcVcom->userCb = callback;
     cdcVcom->userCbArg = userArg;
+    taskEXIT_CRITICAL();
 
     if ((cdcVcom->inputStream = xStreamBufferCreate(VCOM_INPUT_STREAM_SIZE, 0)) == NULL) {
         return kStatus_USB_AllocFail;
@@ -419,18 +443,18 @@ usb_status_t VirtualComInit(usb_cdc_vcom_struct_t *cdcVcom, class_handle_t class
 
 void VirtualComDeinit(usb_cdc_vcom_struct_t *cdcVcom)
 {
-    if (!cdcVcom || !cdcVcom->inputStream || !cdcVcom->inputStream) {
+    if (!cdcVcom || !cdcVcom->configured || !cdcVcom->inputStream || !cdcVcom->inputStream) {
         PRINTF("[VCOM] Attempt to deinit not initialized virtual com");
         return;
     }
+
+    taskENTER_CRITICAL();
     vStreamBufferDelete(cdcVcom->inputStream);
     vStreamBufferDelete(cdcVcom->outputStream);
-    cdcVcom->userCb = NULL;
-    cdcVcom->userCbArg = NULL;
     cdcVcom->inputStream = NULL;
     cdcVcom->outputStream = NULL;
-    cdcVcom->cdcAcmHandle = NULL;
     cdcVcom->configured = false;
+    taskEXIT_CRITICAL();
 
     PRINTF("[VCOM] Deinitialized");
 }
@@ -440,7 +464,8 @@ int VirtualComSend(usb_cdc_vcom_struct_t *cdcVcom, const void* data, size_t leng
     size_t result = 0;
     const size_t endpoint_size = cdcVcom->usb_buffer_size;
     usb_status_t status;
-    if (!cdcVcom->configured || !length) {
+
+    if (!cdcVcom || !cdcVcom->configured || !cdcVcom->cdcAcmHandle || !length) {
         return 0;
     }
 
@@ -460,8 +485,8 @@ int VirtualComSend(usb_cdc_vcom_struct_t *cdcVcom, const void* data, size_t leng
             result = 0;
         }
     }
-
     taskEXIT_CRITICAL();
+
     return result;
 }
 
@@ -469,18 +494,21 @@ int VirtualComRecv(usb_cdc_vcom_struct_t *cdcVcom, void* data, size_t length)
 {
     size_t received;
     uint8_t busy;
+
+    if (!cdcVcom || !cdcVcom->configured || !cdcVcom->cdcAcmHandle || !length) {
+        return 0;
+    }
+
     received = xStreamBufferReceive(cdcVcom->inputStream, data, length, 0);
 
     // don't care about error code. If pipe is busy, then it will rescheduled in ISR
-    if (cdcVcom->configured) {
-
-        taskENTER_CRITICAL();
-        busy = USB_DeviceClassCdcAcmIsBusy(cdcVcom->cdcAcmHandle, USB_CDC_VCOM_DIC_BULK_OUT_ENDPOINT);
-        if (!busy) {
-            RescheduleRecv(cdcVcom);
-        }
-        taskEXIT_CRITICAL();
+    taskENTER_CRITICAL();
+    busy = USB_DeviceClassCdcAcmIsBusy(cdcVcom->cdcAcmHandle, USB_CDC_VCOM_DIC_BULK_OUT_ENDPOINT);
+    if (cdcVcom->configured && !busy) {
+        RescheduleRecv(cdcVcom);
     }
+    taskEXIT_CRITICAL();
+
     return received;
 }
 
