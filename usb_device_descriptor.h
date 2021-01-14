@@ -156,7 +156,7 @@
 #define USB_DEVICE_SUBCLASS (0x02)
 #define USB_DEVICE_PROTOCOL (0x01)
 
-#define USB_DEVICE_MAX_POWER (0x32)
+#define USB_DEVICE_MAX_POWER (0xFA)
 
 /*******************************************************************************
 * API
