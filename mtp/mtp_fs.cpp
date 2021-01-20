@@ -84,7 +84,7 @@ static const mtp_storage_properties_t* get_disk_properties(void* arg)
     fs_data_t *data = (fs_data_t*)arg;
 
     struct statvfs stvfs {};
-    statvfs( purefs::dir::getRootDiskPath().c_str(), &stvfs);
+    statvfs( purefs::dir::getUserDiskPath().c_str(), &stvfs);
 
     // TODO: stats are for entire storage. If MTP is intended to expose
     // only one directory, these stats should be recalculated
@@ -93,7 +93,7 @@ static const mtp_storage_properties_t* get_disk_properties(void* arg)
 
     disk_properties.capacity = data->capacity;
 
-    //LOG("Capacity: %llu B, free: %llu", data->capacity, data->freespace);
+    LOG("Capacity: %u MB, free: %u MB", unsigned(data->capacity/1024/1024), unsigned(data->freespace/1024/1024));
 
     return &disk_properties;
 }
@@ -103,10 +103,10 @@ static uint64_t get_free_space(void *arg)
     // TODO: see get_disk_properties
     uint64_t size = 0;
     struct statvfs stvfs {};
-    statvfs( purefs::dir::getRootDiskPath().c_str(), &stvfs);
+    statvfs( purefs::dir::getUserDiskPath().c_str(), &stvfs);
 
     size = uint64_t(stvfs.f_bsize) * stvfs.f_bavail;
-    //LOG("Free space: %llu KB", size / 1024);
+    LOG("Free space: %u MB", unsigned(size / 1024 / 1024));
     return size;
 }
 
@@ -231,22 +231,16 @@ static int fs_create(void *arg, const mtp_object_info_t *info, uint32_t *handle)
     struct mtp_fs *fs = (struct mtp_fs*)arg;
     uint32_t new_handle;
 
-    if (fs->file) {
-        LOG("Can't create new file. Some file is still open");
-        return -1;
-    }
-
     new_handle = mtp_db_add(fs->db, info->filename);
     if (!new_handle) {
         LOG("Map is full. Can't create: %s", info->filename);
         return -1;
     }
-
-    while(!(fs->file = std::fopen(abspath(info->filename), "w"))) {
+    fs->file = std::fopen(abspath(info->filename), "w");
+    if(!fs->file) {
         LOG("[]: freertos-fat error - ff_open(w) (create). Flush and wait");
-        // TODO: FF_SDDiskFlush(fs->disk);
+        return -1;
     }
-
     std::fclose(fs->file);
     fs->file = NULL;
     *handle = new_handle;
@@ -275,20 +269,13 @@ static int fs_open(void *arg, uint32_t handle, const char *mode)
     if (!filename) {
         return -1;
     }
-
-    if (fs->file) {
-        LOG("Can't open %s. Some file is still open", filename);
-        return -1;
-    }
-
-    while(!(fs->file = std::fopen(abspath(filename), mode))) {
+    fs->file = std::fopen(abspath(filename), mode);
+    if(!fs->file) {
         LOG("[%u]: Fail to open: %s [%s]. Flush and wait", (unsigned int)handle, filename, mode);
         // TODO: FF_SDDiskFlush(fs->disk);
     }
-
     LOG("[%u]: Opened: %s [%s]", (unsigned int)handle, filename, mode);
-
-    return 0;
+    return !fs->file;
 }
 
 static int fs_read(void *arg, void *buffer, size_t count)

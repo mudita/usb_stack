@@ -245,7 +245,6 @@ usb_status_t MtpUSBCallback(uint32_t event, void *param, void *userArg)
 
 static void send_response(usb_mtp_struct_t *mtpApp, uint16_t status)
 {
-    usb_status_t send_status;
     size_t result_len = 0;
     mtp_responder_t *responder = mtpApp->responder;
 
@@ -347,7 +346,6 @@ static void MtpTask(void *handle)
 
             if (status != MTP_RESPONSE_UNDEFINED) {
                 while((result_len = mtp_responder_get_data(responder)) && !mtpApp->in_reset) {
-                    usb_status_t send_status;
 
                     if (!xMessageBufferIsEmpty(mtpApp->inputBox)) {
                         // According to spec, initiator can't issue new transacation, before
