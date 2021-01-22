@@ -103,10 +103,9 @@ namespace bsp
                     deviceListener->rawDataReceived(&usbSerialBuffer, dataReceivedLength);
                 }
                 else if (uxQueueSpacesAvailable(USBReceiveQueue) != 0) {
-                    static std::string receiveMessage;
-                    receiveMessage = std::string(usbSerialBuffer, dataReceivedLength);
+                    std::string *receiveMessage = new std::string(usbSerialBuffer, dataReceivedLength);
                     if (xQueueSend(USBReceiveQueue, &receiveMessage, portMAX_DELAY) == errQUEUE_FULL) {
-                        LOG_ERROR("usbDeviceTask can't send data [%s] to receiveQueue", receiveMessage.c_str());
+                        LOG_ERROR("usbDeviceTask can't send data [%s] to receiveQueue", receiveMessage->c_str());
                     }
                 }
             }
