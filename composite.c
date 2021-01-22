@@ -26,10 +26,10 @@ static usb_status_t USB_DeviceCallback(usb_device_handle handle, uint32_t event,
 /* USB device class information */
 static usb_device_class_config_struct_t g_CompositeClassConfig[2] = {
     {
-        VirtualComUSBCallback, &composite.cdcVcom, (class_handle_t)NULL, &g_UsbDeviceCdcVcomConfig,
+        MtpUSBCallback, &composite.mtpApp, (class_handle_t)NULL, &g_MtpClass,
     },
     {
-        MtpUSBCallback, &composite.mtpApp, (class_handle_t)NULL, &g_MtpClass,
+        VirtualComUSBCallback, &composite.cdcVcom, (class_handle_t)NULL, &g_UsbDeviceCdcVcomConfig,
     }
 };
 
@@ -232,10 +232,10 @@ usb_device_composite_struct_t* composite_init(void)
     else
     {
         /* TODO: pass event handling function here */
-        if (VirtualComInit(&composite.cdcVcom, g_CompositeClassConfig[0].classHandle, NULL, NULL) != kStatus_USB_Success)
+        if (VirtualComInit(&composite.cdcVcom, g_CompositeClassConfig[1].classHandle, NULL, NULL) != kStatus_USB_Success)
             LOG_ERROR("[Composite] VirtualCom initialization failed");
 
-        if (MtpInit(&composite.mtpApp, g_CompositeClassConfig[1].classHandle) != kStatus_USB_Success)
+        if (MtpInit(&composite.mtpApp, g_CompositeClassConfig[0].classHandle) != kStatus_USB_Success)
             LOG_ERROR("[Composite] MTP initialization failed");
     }
 
