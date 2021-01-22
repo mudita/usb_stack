@@ -200,6 +200,41 @@ uint8_t g_UsbDeviceConfigurationDescriptor[] = {
        fully * operational. Expressed in 2 mA units *  (i.e., 50 = 100 mA).  */
     USB_DEVICE_MAX_POWER,
 
+    /***** MTP Device Class *****/
+    /* Interface Descriptors */
+    USB_DESCRIPTOR_LENGTH_INTERFACE,
+    USB_DESCRIPTOR_TYPE_INTERFACE,
+    USB_MTP_INTERFACE_INDEX,
+    0x00,
+    USB_MTP_ENDPOINT_COUNT,
+    USB_MTP_DEVICE_CLASS,
+    USB_MTP_DEVICE_SUBCLASS,
+    USB_MTP_DEVICE_PROTOCOL,
+    USB_STRING_MTP_INTERFACE,
+    /* Endpoint Descriptors */
+        USB_DESCRIPTOR_LENGTH_ENDPOINT,
+        USB_DESCRIPTOR_TYPE_ENDPOINT,
+        USB_MTP_BULK_IN_ENDPOINT  | (USB_IN << 7U),
+        USB_ENDPOINT_BULK,
+        USB_SHORT_GET_LOW(HS_MTP_BULK_IN_PACKET_SIZE),
+        USB_SHORT_GET_HIGH(HS_MTP_BULK_IN_PACKET_SIZE),
+        0x00,
+
+        USB_DESCRIPTOR_LENGTH_ENDPOINT,
+        USB_DESCRIPTOR_TYPE_ENDPOINT,
+        USB_MTP_BULK_OUT_ENDPOINT  | (USB_OUT << 7U),
+        USB_ENDPOINT_BULK,
+        USB_SHORT_GET_LOW(HS_MTP_BULK_IN_PACKET_SIZE),
+        USB_SHORT_GET_HIGH(HS_MTP_BULK_IN_PACKET_SIZE),
+        0x00,
+
+        USB_DESCRIPTOR_LENGTH_ENDPOINT,
+        USB_DESCRIPTOR_TYPE_ENDPOINT,
+        USB_MTP_INTR_IN_ENDPOINT  | (USB_IN << 7U),
+        USB_ENDPOINT_INTERRUPT,
+        USB_SHORT_GET_LOW(HS_MTP_INTR_IN_PACKET_SIZE),
+        USB_SHORT_GET_HIGH(HS_MTP_INTR_IN_PACKET_SIZE),
+        FS_MTP_INTR_IN_INTERVAL,
 
     /* Interface Association Descriptor (IAD) */
     /* Size of this descriptor in bytes */
@@ -207,7 +242,7 @@ uint8_t g_UsbDeviceConfigurationDescriptor[] = {
     /* INTERFACE_ASSOCIATION Descriptor Type  */
     USB_DESCRIPTOR_TYPE_INTERFACE_ASSOCIATION,
     /* The first interface number associated with this function */
-    0x00,
+    USB_CDC_VCOM_CIC_INTERFACE_INDEX,
     /* The number of contiguous interfaces associated with this function */
     0x02,
     /* The function belongs to the Communication Device/Interface Class  */
@@ -251,11 +286,12 @@ uint8_t g_UsbDeviceConfigurationDescriptor[] = {
              Get_Comm_Feature 0, Bit 1: Whether device supports the request combination of Set_Line_Coding,
              Set_Control_Line_State, Get_Line_Coding, and the notification Serial_State 1, Bit ...  */
 
+    /* Union Communication Descriptor */
     USB_DESCRIPTOR_LENGTH_CDC_UNION_FUNC,
     USB_DESCRIPTOR_TYPE_CDC_CS_INTERFACE,
     USB_CDC_UNION_FUNC_DESC,
-    0x00,
-    0x01,
+    USB_CDC_VCOM_CIC_INTERFACE_INDEX,
+    USB_CDC_VCOM_DIC_INTERFACE_INDEX,
 
     /*Notification Endpoint descriptor */
     USB_DESCRIPTOR_LENGTH_ENDPOINT,
@@ -293,42 +329,6 @@ uint8_t g_UsbDeviceConfigurationDescriptor[] = {
         USB_SHORT_GET_LOW(FS_CDC_VCOM_BULK_OUT_PACKET_SIZE),
         USB_SHORT_GET_HIGH(FS_CDC_VCOM_BULK_OUT_PACKET_SIZE),
         0x00, /* The polling interval value is every 0 Frames */
-
-    /***** MTP Device Class *****/
-    /* Interface Descriptors */
-    USB_DESCRIPTOR_LENGTH_INTERFACE,
-    USB_DESCRIPTOR_TYPE_INTERFACE,
-    USB_MTP_INTERFACE_INDEX,
-    0x00,
-    USB_MTP_ENDPOINT_COUNT,
-    USB_MTP_DEVICE_CLASS,
-    USB_MTP_DEVICE_SUBCLASS,
-    USB_MTP_DEVICE_PROTOCOL,
-    USB_STRING_MTP_INTERFACE,
-    /* Endpoint Descriptors */
-        USB_DESCRIPTOR_LENGTH_ENDPOINT,
-        USB_DESCRIPTOR_TYPE_ENDPOINT,
-        USB_MTP_BULK_IN_ENDPOINT  | (USB_IN << 7U),
-        USB_ENDPOINT_BULK,
-        USB_SHORT_GET_LOW(HS_MTP_BULK_IN_PACKET_SIZE),
-        USB_SHORT_GET_HIGH(HS_MTP_BULK_IN_PACKET_SIZE),
-        0x00,
-
-        USB_DESCRIPTOR_LENGTH_ENDPOINT,
-        USB_DESCRIPTOR_TYPE_ENDPOINT,
-        USB_MTP_BULK_OUT_ENDPOINT  | (USB_OUT << 7U),
-        USB_ENDPOINT_BULK,
-        USB_SHORT_GET_LOW(HS_MTP_BULK_IN_PACKET_SIZE),
-        USB_SHORT_GET_HIGH(HS_MTP_BULK_IN_PACKET_SIZE),
-        0x00,
-
-        USB_DESCRIPTOR_LENGTH_ENDPOINT,
-        USB_DESCRIPTOR_TYPE_ENDPOINT,
-        USB_MTP_INTR_IN_ENDPOINT  | (USB_IN << 7U),
-        USB_ENDPOINT_INTERRUPT,
-        USB_SHORT_GET_LOW(HS_MTP_INTR_IN_PACKET_SIZE),
-        USB_SHORT_GET_HIGH(HS_MTP_INTR_IN_PACKET_SIZE),
-        FS_MTP_INTR_IN_INTERVAL,
 };
 
 #if (defined(USB_DEVICE_CONFIG_CV_TEST) && (USB_DEVICE_CONFIG_CV_TEST > 0U))
