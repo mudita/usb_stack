@@ -91,7 +91,7 @@
 #define USB_DEVICE_CONFIG_USB20_TEST_MODE (0U)
 
 /*! @brief Whether device CV test is enabled. */
-#define USB_DEVICE_CONFIG_CV_TEST (0U)
+#define USB_DEVICE_CONFIG_CV_TEST (1U)
 
 /*! @brief Whether device compliance test is enabled. If the macro is enabled,
     the test mode and CV test macroes will be set.*/

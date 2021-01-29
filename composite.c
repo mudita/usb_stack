@@ -200,6 +200,14 @@ static usb_status_t USB_DeviceCallback(usb_device_handle handle, uint32_t event,
                 error = USB_DeviceGetStringDescriptor(handle, (usb_device_get_string_descriptor_struct_t *)param);
             }
             break;
+        #if (defined(USB_DEVICE_CONFIG_CV_TEST) && (USB_DEVICE_CONFIG_CV_TEST > 0U))
+        case kUSB_DeviceEventGetDeviceQualifierDescriptor:
+            if (param)
+            {
+                error = USB_DeviceGetDeviceQualifierDescriptor(handle, (usb_device_get_device_qualifier_descriptor_struct_t *)param);
+            }
+            break;
+        #endif
         case kUSB_DeviceEventDetach:
             VirtualComDetached(&composite.cdcVcom);
             MtpDetached(&composite.mtpApp);
