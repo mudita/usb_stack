@@ -153,6 +153,9 @@
 /*! @brief Whether handle the USB bus error. */
 #define USB_DEVICE_CONFIG_ERROR_HANDLING (0U)
 
+/*! @brief Whether the device charger detect feature is enabled or not. */
+#define USB_DEVICE_CONFIG_CHARGER_DETECT (1U)
+
 /* @} */
 
 #ifndef USB_DEVICE_VENDOR_ID

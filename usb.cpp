@@ -74,6 +74,12 @@ namespace bsp
         vTaskDelay(3000 / portTICK_PERIOD_MS);
 
         while (1) {
+            #if (defined(USB_DEVICE_CONFIG_CHARGER_DETECT) && (USB_DEVICE_CONFIG_CHARGER_DETECT > 0U)) && \
+                (defined(FSL_FEATURE_SOC_USB_ANALOG_COUNT) && (FSL_FEATURE_SOC_USB_ANALOG_COUNT > 0U))
+            // This is an ugly stub for a timer.
+            USB_UpdateHwTick();
+            #endif
+
             dataReceivedLength = usbCDCReceive(&usbSerialBuffer);
 
             if (dataReceivedLength > 0) {
