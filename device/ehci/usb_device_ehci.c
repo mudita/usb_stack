@@ -1235,6 +1235,11 @@ usb_status_t USB_DeviceEhciInit(uint8_t controllerId,
 #endif
 
 #endif
+    /* Reset the controller. */
+    ehciState->registerBase->USBCMD |= USBHS_USBCMD_RST_MASK;
+    while (0U != (ehciState->registerBase->USBCMD & USBHS_USBCMD_RST_MASK))
+    {
+    }
 
     /* Get the HW's endpoint count */
     ehciState->endpointCount =

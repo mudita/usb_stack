@@ -11,7 +11,8 @@
 #include "stream_buffer.h"
 #include "message_buffer.h"
 #include "event_groups.h"
-
+#include "usb_device_config.h"
+#include "MIMXRT1051_features.h"
 #include "virtual_com.h"
 #include "mtp.h"
 
@@ -20,6 +21,10 @@
 
 typedef struct _usb_device_composite_struct
 {
+    #if (defined(USB_DEVICE_CONFIG_CHARGER_DETECT) && (USB_DEVICE_CONFIG_CHARGER_DETECT > 0U)) && \
+        (defined(FSL_FEATURE_SOC_USB_ANALOG_COUNT) && (FSL_FEATURE_SOC_USB_ANALOG_COUNT > 0U))
+    volatile uint64_t hwTick;
+    #endif
     usb_device_handle deviceHandle; /* USB device handle. */
     usb_cdc_vcom_struct_t cdcVcom;  /* CDC virtual com device structure. */
     usb_mtp_struct_t mtpApp;
@@ -29,11 +34,14 @@ typedef struct _usb_device_composite_struct
     uint8_t speed;  /* Speed of USB device. USB_SPEED_FULL/USB_SPEED_LOW/USB_SPEED_HIGH.                 */
     uint8_t attach; /* A flag to indicate whether a usb device is attached. 1: attached, 0: not attached */
     uint8_t currentConfiguration; /* Current configuration value. */
-    uint8_t
-        currentInterfaceAlternateSetting[USB_INTERFACE_COUNT]; /* Current alternate setting value for each interface. */
+    uint8_t currentInterfaceAlternateSetting[USB_INTERFACE_COUNT]; /* Current alternate setting value for each interface. */
 } usb_device_composite_struct_t;
 
 usb_device_composite_struct_t* composite_init(void);
 void composite_deinit(usb_device_composite_struct_t* composite);
 
+#if (defined(USB_DEVICE_CONFIG_CHARGER_DETECT) && (USB_DEVICE_CONFIG_CHARGER_DETECT > 0U)) && \
+    (defined(FSL_FEATURE_SOC_USB_ANALOG_COUNT) && (FSL_FEATURE_SOC_USB_ANALOG_COUNT > 0U))
+void USB_UpdateHwTick(void);
+#endif
 #endif /* _USB_DEVICE_COMPOSITE_H_ */

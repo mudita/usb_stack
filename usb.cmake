@@ -8,6 +8,7 @@ set(USB_SRC
         "${CMAKE_CURRENT_SOURCE_DIR}/board/rt1051/bsp/usb/device/usb_string_descriptor.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/board/rt1051/bsp/usb/cdc/usb_device_cdc_acm.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/board/rt1051/bsp/usb/cdc/virtual_com.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/board/rt1051/bsp/usb/dcd/usb_phydcd.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/board/rt1051/bsp/usb/mtp/libmtp/mtp_container.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/board/rt1051/bsp/usb/mtp/libmtp/mtp_dataset.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/board/rt1051/bsp/usb/mtp/libmtp/mtp_responder.c"
@@ -20,7 +21,6 @@ set(USB_SRC
         "${CMAKE_CURRENT_SOURCE_DIR}/board/rt1051/bsp/usb/phy/usb_phy.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/board/rt1051/bsp/usb/usb_device_descriptor.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/board/rt1051/bsp/usb/composite.c"
-        #"${CMAKE_CURRENT_SOURCE_DIR}/board/rt1051/bsp/usb/virtual_com_demo.c"
 	"${CMAKE_CURRENT_SOURCE_DIR}/board/rt1051/bsp/usb/usb.cpp"
         CACHE INTERNAL ""
         )
@@ -30,6 +30,7 @@ set(USB_DIR_INCLUDES
         "${CMAKE_CURRENT_SOURCE_DIR}/board/rt1051/bsp/usb/cdc"
         "${CMAKE_CURRENT_SOURCE_DIR}/board/rt1051/bsp/usb/component/lists"
         "${CMAKE_CURRENT_SOURCE_DIR}/board/rt1051/bsp/usb/component/osa"
+        "${CMAKE_CURRENT_SOURCE_DIR}/board/rt1051/bsp/usb/dcd"
         "${CMAKE_CURRENT_SOURCE_DIR}/board/rt1051/bsp/usb/device"
         "${CMAKE_CURRENT_SOURCE_DIR}/board/rt1051/bsp/usb/device/ehci"
         "${CMAKE_CURRENT_SOURCE_DIR}/board/rt1051/bsp/usb/mtp"
