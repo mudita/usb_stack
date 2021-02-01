@@ -14,7 +14,10 @@
 #include "composite.h"
 #include "usb_phy.h"
 
-#include "virtual_com_demo.h"
+#if (defined(USB_DEVICE_CONFIG_CHARGER_DETECT) && (USB_DEVICE_CONFIG_CHARGER_DETECT > 0U)) && \
+    (defined(FSL_FEATURE_SOC_USB_ANALOG_COUNT) && (FSL_FEATURE_SOC_USB_ANALOG_COUNT > 0U))
+#include "usb_charger_detect.h"
+#endif
 
 extern usb_device_class_struct_t g_UsbDeviceCdcVcomConfig;
 extern usb_device_class_struct_t g_MtpClass;
@@ -32,6 +35,13 @@ static usb_device_class_config_struct_t g_CompositeClassConfig[2] = {
         VirtualComUSBCallback, &composite.cdcVcom, (class_handle_t)NULL, &g_UsbDeviceCdcVcomConfig,
     }
 };
+
+#if (defined(USB_DEVICE_CONFIG_CHARGER_DETECT) && (USB_DEVICE_CONFIG_CHARGER_DETECT > 0U)) && \
+    (defined(FSL_FEATURE_SOC_USB_ANALOG_COUNT) && (FSL_FEATURE_SOC_USB_ANALOG_COUNT > 0U))
+void USB_UpdateHwTick(void) {
+    USB_DeviceUpdateHwTick(composite.deviceHandle, composite.hwTick++);
+}
+#endif
 
 /* USB device class configuration information */
 static usb_device_class_config_list_struct_t g_UsbDeviceCompositeConfigList = {
@@ -104,6 +114,32 @@ static void USB_DeviceSetIsr(bool enable)
         DisableIRQ((IRQn_Type)irqNumber);
     }
 }
+
+#if (defined(USB_DEVICE_CONFIG_CHARGER_DETECT) && (USB_DEVICE_CONFIG_CHARGER_DETECT > 0U)) && \
+    (defined(FSL_FEATURE_SOC_USB_ANALOG_COUNT) && (FSL_FEATURE_SOC_USB_ANALOG_COUNT > 0U))
+
+extern void USB_ChargerDetectedCB(uint8_t detectionState);
+
+static void charger_detected_callback(uint8_t type)
+{
+    switch (type)
+    {
+        case kUSB_DcdSDP:
+            LOG_DEBUG("SDP detected. Max current is 500mA\r\n");
+            break;
+        case kUSB_DcdCDP:
+            LOG_DEBUG("CDP detected. Max current is 1500mA\r\n");
+            break;
+        case kUSB_DcdDCP:
+            LOG_DEBUG("DCP detected. Max current is 1500mA\r\n");
+            break;
+        default:
+            LOG_DEBUG("Unknown charger type. Max current is 500mA\r\n");
+    }
+
+    USB_ChargerDetectedCB(type);
+}
+#endif
 
 static usb_status_t USB_DeviceCallback(usb_device_handle handle, uint32_t event, void *param)
 {
@@ -211,7 +247,15 @@ static usb_status_t USB_DeviceCallback(usb_device_handle handle, uint32_t event,
         case kUSB_DeviceEventDetach:
             VirtualComDetached(&composite.cdcVcom);
             MtpDetached(&composite.mtpApp);
+
             break;
+        #if (defined(USB_DEVICE_CONFIG_CHARGER_DETECT) && (USB_DEVICE_CONFIG_CHARGER_DETECT > 0U)) && \
+            (defined(FSL_FEATURE_SOC_USB_ANALOG_COUNT) && (FSL_FEATURE_SOC_USB_ANALOG_COUNT > 0U))
+        case kUSB_DeviceEventDcdDetectionfinished:
+            charger_detected_callback(*(uint8_t*)param);
+            break;
+        #endif
+
         default:
             break;
     }
@@ -230,6 +274,12 @@ usb_device_composite_struct_t* composite_init(void)
     composite.attach = 0;
     composite.cdcVcom.cdcAcmHandle = (class_handle_t)NULL;
     composite.deviceHandle = NULL;
+
+    PMU->REG_3P0 |= PMU_REG_3P0_ENABLE_ILIMIT(1);
+    PMU->REG_3P0 |= PMU_REG_3P0_ENABLE_LINREG(1);
+
+    LOG_DEBUG("VBUS_DETECT: 0x%08x\r\n", (unsigned int)USB_ANALOG->INSTANCE[0].VBUS_DETECT);
+    LOG_DEBUG("VBUS_DETECT_STAT: 0x%08x\r\n", (unsigned int)USB_ANALOG->INSTANCE[0].VBUS_DETECT_STAT);
 
     if (kStatus_USB_Success !=
         USB_DeviceClassInit(CONTROLLER_ID, &g_UsbDeviceCompositeConfigList, &composite.deviceHandle))
