@@ -20,6 +20,25 @@ extern "C"
 #include "usb_phy.h"
 }
 
+#ifndef DEUBG_USB
+    #undef LOG_PRINTF
+    #undef LOG_TRACE
+    #undef LOG_DEBUG
+    #undef LOG_INFO
+    #undef LOG_WARN
+    #undef LOG_ERROR
+    #undef LOG_FATAL
+    #undef LOG_CUSTOM
+
+    #define LOG_PRINTF(...)
+    #define LOG_TRACE(...)
+    #define LOG_DEBUG(...)
+    #define LOG_INFO(...)
+    #define LOG_WARN(...)
+    #define LOG_ERROR(...)
+    #define LOG_FATAL(...)
+    #define LOG_CUSTOM(loggerLevel, ...)
+#endif
 namespace bsp
 {
     usb_device_composite_struct_t *usbDeviceComposite = nullptr;
@@ -83,7 +102,7 @@ namespace bsp
             dataReceivedLength = usbCDCReceive(&usbSerialBuffer);
 
             if (dataReceivedLength > 0) {
-                LOG_DEBUG("usbDeviceTask Received: %d signs", static_cast<int>(dataReceivedLength));
+                LOG_INFO("usbDeviceTask Received: %d signs", static_cast<int>(dataReceivedLength));
 
 #if USBCDC_ECHO_ENABLED
                 bool usbCdcEchoEnabledPrev = usbCdcEchoEnabled;
