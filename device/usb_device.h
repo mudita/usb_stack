@@ -172,7 +172,6 @@ typedef struct _usb_device_endpoint_status_struct
     uint16_t endpointStatus; /*!< Endpoint status : idle or stalled */
 } usb_device_endpoint_status_struct_t;
 
-
 #if defined(__cplusplus)
 extern "C" {
 #endif /* __cplusplus*/
