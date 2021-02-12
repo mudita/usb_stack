@@ -62,7 +62,7 @@ namespace bsp
     {
         BaseType_t xReturned = xTaskCreate(reinterpret_cast<TaskFunction_t>(&bsp::usbDeviceTask),
                                            "bsp::usbDeviceTask",
-                                           2048L / sizeof(portSTACK_TYPE),
+                                           8192L / sizeof(portSTACK_TYPE),
                                            deviceListener, 2,
                                            &bsp::usbTaskHandle);
 
