@@ -44,6 +44,7 @@ namespace bsp
     usb_device_composite_struct_t *usbDeviceComposite = nullptr;
     TaskHandle_t usbTaskHandle = NULL;
     xQueueHandle USBReceiveQueue;
+    xQueueHandle USBIrqQueue;
     static cpp_freertos::MutexStandard mutex;
 
     char usbSerialBuffer[SERIAL_BUFFER_LEN];
@@ -58,7 +59,7 @@ namespace bsp
     constexpr inline auto usbCDCEchoOffCmdLength = usbCDCEchoOffCmd.length();
 #endif
 
-    int usbInit(xQueueHandle queueHandle, USBDeviceListener *deviceListener)
+    int usbInit(xQueueHandle queueHandle, xQueueHandle irqQueueHandle, USBDeviceListener *deviceListener)
     {
         BaseType_t xReturned = xTaskCreate(reinterpret_cast<TaskFunction_t>(&bsp::usbDeviceTask),
                                            "bsp::usbDeviceTask",
@@ -73,8 +74,9 @@ namespace bsp
             return -1;
         }
 
-        USBReceiveQueue = queueHandle;
-        usbDeviceComposite = composite_init();
+        USBReceiveQueue                = queueHandle;
+        USBIrqQueue                    = irqQueueHandle;
+        usbDeviceComposite = composite_init(usbDeviceStateCB, NULL);
 
         return (usbDeviceComposite == NULL) ? -1 : 0;
     }
@@ -170,4 +172,19 @@ namespace bsp
 
         return dataSent;
     }
-}
+
+    void usbDeviceStateCB(void *, vcomEvent event)
+    {
+        USBDeviceStatus notification;
+        switch (event) {
+        case VCOM_ATTACHED:
+            notification = USBDeviceStatus::Connected;
+            xQueueSend(USBIrqQueue, &notification, 0);
+            break;
+        case VCOM_DETACHED:
+            notification = USBDeviceStatus::Disconnected;
+            xQueueSend(USBIrqQueue, &notification, 0);
+            break;
+        }
+    }
+} // namespace bsp

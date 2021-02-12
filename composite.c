@@ -244,6 +244,11 @@ static usb_status_t USB_DeviceCallback(usb_device_handle handle, uint32_t event,
             }
             break;
         #endif
+
+        case kUSB_DeviceEventAttach:
+            VirtualComAttached(&composite.cdcVcom);
+        break;
+
         case kUSB_DeviceEventDetach:
             VirtualComDetached(&composite.cdcVcom);
             MtpDetached(&composite.mtpApp);
@@ -264,7 +269,7 @@ static usb_status_t USB_DeviceCallback(usb_device_handle handle, uint32_t event,
 }
 
 
-usb_device_composite_struct_t* composite_init(void)
+usb_device_composite_struct_t* composite_init(userCbFunc callback, void* userArg)
 {
     if (USB_DeviceClockInit() != kStatus_USB_Success) {
         LOG_ERROR("[Composite] USB Device Clock init failed");
@@ -290,7 +295,8 @@ usb_device_composite_struct_t* composite_init(void)
     else
     {
         /* TODO: pass event handling function here */
-        if (VirtualComInit(&composite.cdcVcom, g_CompositeClassConfig[1].classHandle, NULL, NULL) != kStatus_USB_Success)
+        if (VirtualComInit(&composite.cdcVcom, g_CompositeClassConfig[1].classHandle, callback, userArg) !=
+            kStatus_USB_Success)
             LOG_ERROR("[Composite] VirtualCom initialization failed");
 
         if (MtpInit(&composite.mtpApp, g_CompositeClassConfig[0].classHandle) != kStatus_USB_Success)

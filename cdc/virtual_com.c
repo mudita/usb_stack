@@ -367,6 +367,11 @@ usb_status_t VirtualComUSBCallback(uint32_t event, void *param, void *userArg)
     return error;
 }
 
+void VirtualComAttached(usb_cdc_vcom_struct_t *cdcVcom)
+{
+    PRINTF("[VCOM] Info: attached");
+    call_user_cb(cdcVcom, VCOM_ATTACHED);
+}
 
 void VirtualComDetached(usb_cdc_vcom_struct_t *cdcVcom)
 {
