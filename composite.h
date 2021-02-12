@@ -37,8 +37,8 @@ typedef struct _usb_device_composite_struct
     uint8_t currentInterfaceAlternateSetting[USB_INTERFACE_COUNT]; /* Current alternate setting value for each interface. */
 } usb_device_composite_struct_t;
 
-usb_device_composite_struct_t* composite_init(void);
-void composite_deinit(usb_device_composite_struct_t* composite);
+usb_device_composite_struct_t *composite_init(userCbFunc callback, void *userArg);
+void composite_deinit(usb_device_composite_struct_t *composite);
 
 #if (defined(USB_DEVICE_CONFIG_CHARGER_DETECT) && (USB_DEVICE_CONFIG_CHARGER_DETECT > 0U)) && \
     (defined(FSL_FEATURE_SOC_USB_ANALOG_COUNT) && (FSL_FEATURE_SOC_USB_ANALOG_COUNT > 0U))
