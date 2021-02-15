@@ -22,7 +22,6 @@ extern "C"
 #include <unistd.h>
 #include <module-bsp/bsp/usb/usb.hpp>
 
-
 namespace bsp
 {
     int usbInit(xQueueHandle queueHandle, USBDeviceListener *deviceListener);
@@ -31,4 +30,7 @@ namespace bsp
     int usbCDCSendRaw(const char *dataPtr, size_t dataLen);
     void usbDeviceTask(void *);
     void usbDeinit();
+
+    /* Callback fired on low level events */
+    void usbDeviceStateCB(void *, vcomEvent event);
 } // namespace bsp

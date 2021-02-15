@@ -83,6 +83,11 @@ usb_status_t VirtualComInit(usb_cdc_vcom_struct_t *cdcVcom, class_handle_t class
 void VirtualComDeinit(usb_cdc_vcom_struct_t *cdcVcom);
 
 /**
+ * @brief Notify VirtualCom that USB cable is plugged
+ */
+void VirtualComAttached(usb_cdc_vcom_struct_t *cdcVcom);
+
+/**
  * @brief Notify VirtualCom that USB cable is unplugged
  */
 void VirtualComDetached(usb_cdc_vcom_struct_t *cdcVcom);
