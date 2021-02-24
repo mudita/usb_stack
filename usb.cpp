@@ -185,6 +185,8 @@ namespace bsp
             notification = USBDeviceStatus::Disconnected;
             xQueueSend(USBIrqQueue, &notification, 0);
             break;
+        default:
+            break;
         }
     }
 } // namespace bsp
