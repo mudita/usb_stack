@@ -15,14 +15,15 @@
 #include "usb_device_mtp.h"
 #include "usb_device_ch9.h"
 #include "usb_device_descriptor.h"
-#include "ff.h"
+// #include "ff.h"
 #include "mtp_file_system_adapter.h"
+#include "usb_device_mtp.h"
 #include "mtp_operation.h"
 #include "mtp.h"
-#include "diskio.h"
+// #include "diskio.h"
 
 #include "fsl_device_registers.h"
-#include "fsl_debug_console.h"
+// #include "fsl_debug_console.h"
 #include "pin_mux.h"
 #include "clock_config.h"
 #include "board.h"
@@ -38,7 +39,7 @@
 #if (USB_DEVICE_CONFIG_USE_TASK < 1)
 #error This application requires USB_DEVICE_CONFIG_USE_TASK value defined > 0 in usb_device_config.h. Please recompile with this option.
 #endif
-#include "sdmmc_config.h"
+// #include "sdmmc_config.h"
 /*******************************************************************************
  * Definitions
  ******************************************************************************/
@@ -65,7 +66,7 @@ extern void USB_DeviceEventTask(void *arg);
 /*******************************************************************************
  * Variables
  ******************************************************************************/
-extern sd_card_t g_sd;
+// extern sd_card_t g_sd;
 const uint16_t g_OpSupported[] = {
     MTP_OPERATION_GET_DEVICE_INFO,
     MTP_OPERATION_OPEN_SESSION,
@@ -282,61 +283,6 @@ USB_DMA_NONINIT_DATA_ALIGN(USB_DATA_ALIGN_SIZE) uint32_t g_mtpTransferBuffer[USB
  * Code
  ******************************************************************************/
 
-void USB_OTG1_IRQHandler(void)
-{
-    USB_DeviceEhciIsrFunction(g_mtp.deviceHandle);
-    /* Add for ARM errata 838869, affects Cortex-M4, Cortex-M4F Store immediate overlapping
-    exception return operation might vector to incorrect interrupt */
-    __DSB();
-}
-
-void USB_OTG2_IRQHandler(void)
-{
-    USB_DeviceEhciIsrFunction(g_mtp.deviceHandle);
-    /* Add for ARM errata 838869, affects Cortex-M4, Cortex-M4F Store immediate overlapping
-    exception return operation might vector to incorrect interrupt */
-    __DSB();
-}
-
-void USB_DeviceClockInit(void)
-{
-    usb_phy_config_struct_t phyConfig = {
-        BOARD_USB_PHY_D_CAL,
-        BOARD_USB_PHY_TXCAL45DP,
-        BOARD_USB_PHY_TXCAL45DM,
-    };
-
-    if (CONTROLLER_ID == kUSB_ControllerEhci0)
-    {
-        CLOCK_EnableUsbhs0PhyPllClock(kCLOCK_Usbphy480M, 480000000U);
-        CLOCK_EnableUsbhs0Clock(kCLOCK_Usb480M, 480000000U);
-    }
-    else
-    {
-        CLOCK_EnableUsbhs1PhyPllClock(kCLOCK_Usbphy480M, 480000000U);
-        CLOCK_EnableUsbhs1Clock(kCLOCK_Usb480M, 480000000U);
-    }
-    USB_EhciPhyInit(CONTROLLER_ID, BOARD_XTAL0_CLK_HZ, &phyConfig);
-}
-
-void USB_DeviceIsrEnable(void)
-{
-    uint8_t irqNumber;
-
-    uint8_t usbDeviceEhciIrq[] = USBHS_IRQS;
-    irqNumber                  = usbDeviceEhciIrq[CONTROLLER_ID - kUSB_ControllerEhci0];
-
-    /* Install isr, set priority, and enable IRQ. */
-    NVIC_SetPriority((IRQn_Type)irqNumber, USB_DEVICE_INTERRUPT_PRIORITY);
-    EnableIRQ((IRQn_Type)irqNumber);
-}
-
-#if USB_DEVICE_CONFIG_USE_TASK
-void USB_DeviceTaskFn(void *deviceHandle)
-{
-    USB_DeviceEhciTaskFunction(deviceHandle);
-}
-#endif
 
 /*!
  * @brief device mtp callback function.
@@ -519,6 +465,7 @@ usb_status_t USB_DeviceMtpCallback(class_handle_t handle, uint32_t event, void *
 
     return error;
 }
+
 /*!
  * @brief device callback function.
  *
@@ -528,200 +475,121 @@ usb_status_t USB_DeviceMtpCallback(class_handle_t handle, uint32_t event, void *
  * @param param           The parameter of the device specific request.
  * @return  A USB error code or kStatus_USB_Success..
  */
-usb_status_t USB_DeviceCallback(usb_device_handle handle, uint32_t event, void *param)
-{
-    usb_status_t error = kStatus_USB_Error;
-    uint16_t *temp16   = (uint16_t *)param;
-    uint8_t *temp8     = (uint8_t *)param;
-    switch (event)
-    {
-        case kUSB_DeviceEventBusReset:
-        {
-            g_mtp.attach               = 0;
-            g_mtp.currentConfiguration = 0U;
-            error                      = kStatus_USB_Success;
-#if (defined(USB_DEVICE_CONFIG_EHCI) && (USB_DEVICE_CONFIG_EHCI > 0U)) || \
-    (defined(USB_DEVICE_CONFIG_LPCIP3511HS) && (USB_DEVICE_CONFIG_LPCIP3511HS > 0U))
-            /* Get USB speed to configure the device, including max packet size and interval of the endpoints. */
-            if (kStatus_USB_Success == USB_DeviceClassGetSpeed(CONTROLLER_ID, &g_mtp.speed))
-            {
-                USB_DeviceSetSpeed(handle, g_mtp.speed);
-            }
-#endif
-        }
-        break;
-
-#if (defined(USB_DEVICE_CONFIG_DETACH_ENABLE) && (USB_DEVICE_CONFIG_DETACH_ENABLE > 0U))
-        case kUSB_DeviceEventDetach:
-            USB_DeviceMtpCancelCurrentTransaction(g_mtp.mtpHandle);
-            if (0U == g_mtp.mutexUsbToDiskTask)
-            {
-                USB_DeviceCmdCloseSession(NULL);
-            }
-            break;
-#endif
-
-        case kUSB_DeviceEventSetConfiguration:
-            if (0U == (*temp8))
-            {
-                g_mtp.attach               = 0;
-                g_mtp.currentConfiguration = 0U;
-            }
-            else if (USB_MTP_CONFIGURE_INDEX == (*temp8))
-            {
-                g_mtp.attach               = 1;
-                g_mtp.currentConfiguration = *temp8;
-            }
-            else
-            {
-                error = kStatus_USB_InvalidRequest;
-            }
-            break;
-        case kUSB_DeviceEventSetInterface:
-            if (g_mtp.attach)
-            {
-                uint8_t interface        = (uint8_t)((*temp16 & 0xFF00U) >> 0x08U);
-                uint8_t alternateSetting = (uint8_t)(*temp16 & 0x00FFU);
-                if (interface < USB_MTP_INTERFACE_COUNT)
-                {
-                    g_mtp.currentInterfaceAlternateSetting[interface] = alternateSetting;
-                }
-            }
-            break;
-        case kUSB_DeviceEventGetConfiguration:
-            if (param)
-            {
-                *temp8 = g_mtp.currentConfiguration;
-                error  = kStatus_USB_Success;
-            }
-            break;
-        case kUSB_DeviceEventGetInterface:
-            if (param)
-            {
-                uint8_t interface = (uint8_t)((*temp16 & 0xFF00U) >> 0x08U);
-                if (interface < USB_INTERFACE_COUNT)
-                {
-                    *temp16 = (*temp16 & 0xFF00U) | g_mtp.currentInterfaceAlternateSetting[interface];
-                    error   = kStatus_USB_Success;
-                }
-                else
-                {
-                    error = kStatus_USB_InvalidRequest;
-                }
-            }
-            break;
-        case kUSB_DeviceEventGetDeviceDescriptor:
-            if (param)
-            {
-                error = USB_DeviceGetDeviceDescriptor(handle, (usb_device_get_device_descriptor_struct_t *)param);
-            }
-            break;
-        case kUSB_DeviceEventGetConfigurationDescriptor:
-            if (param)
-            {
-                error = USB_DeviceGetConfigurationDescriptor(handle,
-                                                             (usb_device_get_configuration_descriptor_struct_t *)param);
-            }
-            break;
-#if (defined(USB_DEVICE_CONFIG_CV_TEST) && (USB_DEVICE_CONFIG_CV_TEST > 0U))
-        case kUSB_DeviceEventGetDeviceQualifierDescriptor:
-            if (param)
-            {
-                /* Get Qualifier descriptor request */
-                error = USB_DeviceGetDeviceQualifierDescriptor(
-                    handle, (usb_device_get_device_qualifier_descriptor_struct_t *)param);
-            }
-            break;
-#endif
-        case kUSB_DeviceEventGetStringDescriptor:
-            if (param)
-            {
-                error = USB_DeviceGetStringDescriptor(handle, (usb_device_get_string_descriptor_struct_t *)param);
-            }
-            break;
-        default:
-            break;
-    }
-    return error;
-}
-/* USB device class information */
-usb_device_class_config_struct_t mtp_config[1] = {{
-    USB_DeviceMtpCallback,
-    0,
-    &g_UsbDeviceMtpConfig,
-}};
-/* USB device class configuration information */
-usb_device_class_config_list_struct_t mtp_config_list = {
-    mtp_config,
-    USB_DeviceCallback,
-    1,
-};
-
-/*!
- * @brief device application init function.
- *
- * This function init the usb stack and sdhc driver.
- *
- * @return None.
- */
-void USB_DeviceApplicationInit(void)
-{
-    USB_DeviceClockInit();
-#if (defined(FSL_FEATURE_SOC_SYSMPU_COUNT) && (FSL_FEATURE_SOC_SYSMPU_COUNT > 0U))
-    SYSMPU_Enable(SYSMPU, 0);
-#endif /* FSL_FEATURE_SOC_SYSMPU_COUNT */
-
-    usb_echo("Please insert disk\r\n");
-
-    g_mtp.devPropDescList = &g_DevPropDescList;
-    g_mtp.storageList     = &g_StorageList;
-    g_mtp.objPropList     = &g_ObjPropList;
-    g_mtp.devFriendlyName = &g_DevFriendlyName[0];
-    g_mtp.path            = (uint8_t *)&g_pathBuffer[0];
-
-    g_mtp.speed              = USB_SPEED_FULL;
-    g_mtp.attach             = 0;
-    g_mtp.mtpHandle          = (class_handle_t)NULL;
-    g_mtp.deviceHandle       = NULL;
-    g_mtp.mutexUsbToDiskTask = 0U;
-
-    g_mtp.queueHandle = xQueueCreate(1U, sizeof(usb_mtp_disk_operation_msgq_struct_t));
-    if (NULL == g_mtp.queueHandle)
-    {
-        usb_echo("Queue create failed\r\n");
-    }
-
-    if (kStatus_USB_Success != USB_DeviceMtpFSInit((const uint16_t *)g_mtp.storageList->storageInfo[0].rootPath))
-    {
-        usb_echo("Disk init failed\r\n");
-    }
-
-    if (kStatus_USB_Success != USB_DeviceClassInit(CONTROLLER_ID, &mtp_config_list, &g_mtp.deviceHandle))
-    {
-        usb_echo("USB device init failed\r\n");
-    }
-    else
-    {
-        usb_echo("USB device mtp demo\r\n");
-        g_mtp.mtpHandle = mtp_config_list.config->classHandle;
-    }
-
-    USB_DeviceIsrEnable();
-
-    /*Add one delay here to make the DP pull down long enough to allow host to detect the previous disconnection.*/
-    SDK_DelayAtLeastUs(5000, SDK_DEVICE_MAXIMUM_CPU_CLOCK_FREQUENCY);
-    USB_DeviceRun(g_mtp.deviceHandle);
-}
-
-#if USB_DEVICE_CONFIG_USE_TASK
-void USB_DeviceTask(void *handle)
-{
-    while (1U)
-    {
-        USB_DeviceTaskFn(handle);
-    }
-}
-#endif
+// usb_status_t USB_DeviceCallback(usb_device_handle handle, uint32_t event, void *param)
+// {
+//     usb_status_t error = kStatus_USB_Error;
+//     uint16_t *temp16   = (uint16_t *)param;
+//     uint8_t *temp8     = (uint8_t *)param;
+//     switch (event)
+//     {
+//         case kUSB_DeviceEventBusReset:
+//         {
+//             g_mtp.attach               = 0;
+//             g_mtp.currentConfiguration = 0U;
+//             error                      = kStatus_USB_Success;
+// #if (defined(USB_DEVICE_CONFIG_EHCI) && (USB_DEVICE_CONFIG_EHCI > 0U))
+//             /* Get USB speed to configure the device, including max packet size and interval of the endpoints. */
+//             if (kStatus_USB_Success == USB_DeviceClassGetSpeed(CONTROLLER_ID, &g_mtp.speed))
+//             {
+//                 USB_DeviceSetSpeed(handle, g_mtp.speed);
+//             }
+// #endif
+//         }
+//         break;
+//
+// #if (defined(USB_DEVICE_CONFIG_DETACH_ENABLE) && (USB_DEVICE_CONFIG_DETACH_ENABLE > 0U))
+//         case kUSB_DeviceEventDetach:
+//             USB_DeviceMtpCancelCurrentTransaction(g_mtp.mtpHandle);
+//             if (0U == g_mtp.mutexUsbToDiskTask)
+//             {
+//                 USB_DeviceCmdCloseSession(NULL);
+//             }
+//             break;
+// #endif
+//
+//         case kUSB_DeviceEventSetConfiguration:
+//             if (0U == (*temp8))
+//             {
+//                 g_mtp.attach               = 0;
+//                 g_mtp.currentConfiguration = 0U;
+//             }
+//             else if (USB_MTP_CONFIGURE_INDEX == (*temp8))
+//             {
+//                 g_mtp.attach               = 1;
+//                 g_mtp.currentConfiguration = *temp8;
+//             }
+//             else
+//             {
+//                 error = kStatus_USB_InvalidRequest;
+//             }
+//             break;
+//         case kUSB_DeviceEventSetInterface:
+//             if (g_mtp.attach)
+//             {
+//                 uint8_t interface        = (uint8_t)((*temp16 & 0xFF00U) >> 0x08U);
+//                 uint8_t alternateSetting = (uint8_t)(*temp16 & 0x00FFU);
+//                 if (interface < USB_MTP_INTERFACE_COUNT)
+//                 {
+//                     g_mtp.currentInterfaceAlternateSetting[interface] = alternateSetting;
+//                 }
+//             }
+//             break;
+//         case kUSB_DeviceEventGetConfiguration:
+//             if (param)
+//             {
+//                 *temp8 = g_mtp.currentConfiguration;
+//                 error  = kStatus_USB_Success;
+//             }
+//             break;
+//         case kUSB_DeviceEventGetInterface:
+//             if (param)
+//             {
+//                 uint8_t interface = (uint8_t)((*temp16 & 0xFF00U) >> 0x08U);
+//                 if (interface < USB_INTERFACE_COUNT)
+//                 {
+//                     *temp16 = (*temp16 & 0xFF00U) | g_mtp.currentInterfaceAlternateSetting[interface];
+//                     error   = kStatus_USB_Success;
+//                 }
+//                 else
+//                 {
+//                     error = kStatus_USB_InvalidRequest;
+//                 }
+//             }
+//             break;
+//         case kUSB_DeviceEventGetDeviceDescriptor:
+//             if (param)
+//             {
+//                 error = USB_DeviceGetDeviceDescriptor(handle, (usb_device_get_device_descriptor_struct_t *)param);
+//             }
+//             break;
+//         case kUSB_DeviceEventGetConfigurationDescriptor:
+//             if (param)
+//             {
+//                 error = USB_DeviceGetConfigurationDescriptor(handle,
+//                                                              (usb_device_get_configuration_descriptor_struct_t *)param);
+//             }
+//             break;
+// #if (defined(USB_DEVICE_CONFIG_CV_TEST) && (USB_DEVICE_CONFIG_CV_TEST > 0U))
+//         case kUSB_DeviceEventGetDeviceQualifierDescriptor:
+//             if (param)
+//             {
+//                 /* Get Qualifier descriptor request */
+//                 error = USB_DeviceGetDeviceQualifierDescriptor(
+//                     handle, (usb_device_get_device_qualifier_descriptor_struct_t *)param);
+//             }
+//             break;
+// #endif
+//         case kUSB_DeviceEventGetStringDescriptor:
+//             if (param)
+//             {
+//                 error = USB_DeviceGetStringDescriptor(handle, (usb_device_get_string_descriptor_struct_t *)param);
+//             }
+//             break;
+//         default:
+//             break;
+//     }
+//     return error;
+// }
 
 void USB_DeviceDiskOperationTask(void *arg)
 {
@@ -771,88 +639,101 @@ void USB_DeviceDiskOperationTask(void *arg)
     }
 }
 
-void APP_task(void *handle)
+
+/*!
+ * @brief device application init function.
+ *
+ * This function init the usb stack and sdhc driver.
+ *
+ * @return None.
+ */
+usb_status_t USB_DeviceMtpApplicationInit(void* arg)
 {
-    USB_DeviceApplicationInit();
+    g_mtp.devPropDescList = &g_DevPropDescList;
+    g_mtp.storageList     = &g_StorageList;
+    g_mtp.objPropList     = &g_ObjPropList;
+    g_mtp.devFriendlyName = &g_DevFriendlyName[0];
+    g_mtp.path            = (uint8_t *)&g_pathBuffer[0];
 
-    if (g_mtp.deviceHandle)
+    g_mtp.mtpHandle          = (class_handle_t)arg;
+    g_mtp.mutexUsbToDiskTask = 0U;
+
+    g_mtp.queueHandle = xQueueCreate(1U, sizeof(usb_mtp_disk_operation_msgq_struct_t));
+    if (NULL == g_mtp.queueHandle)
     {
-#if USB_DEVICE_CONFIG_USE_TASK
-        if (xTaskCreate(USB_DeviceTask,                  /* pointer to the task */
-                        (char const *)"usb device task", /* task name for kernel awareness debugging */
-                        5000L / sizeof(portSTACK_TYPE),  /* task stack size */
-                        g_mtp.deviceHandle,              /* optional task startup argument */
-                        5,                               /* initial priority */
-                        &g_mtp.device_task_handle        /* optional task handle to create */
-                        ) != pdPASS)
-        {
-            usb_echo("usb device task create failed!\r\n");
-            return;
-        }
-
-#if USB_DEVICE_CONFIG_USE_EVENT_TASK
-        if (xTaskCreate(USB_DeviceEventTask,                   /* pointer to the task */
-                        (char const *)"usb device event task", /* task name for kernel awareness debugging */
-                        3000L / sizeof(portSTACK_TYPE),        /* task stack size */
-                        &g_mtp,                                /* optional task startup argument */
-                        4,                                     /* initial priority */
-                        NULL                                   /* optional task handle to create */
-                        ) != pdPASS)
-        {
-            usb_echo("usb device event task create failed!\r\n");
-            return;
-        }
-#endif
-#endif
-        if (xTaskCreate(USB_DeviceDiskOperationTask,    /* pointer to the task */
-                        (char const *)"usb disk task",  /* task name for kernel awareness debugging */
-                        5000L / sizeof(portSTACK_TYPE), /* task stack size */
-                        NULL,                           /* optional task startup argument */
-                        4,                              /* initial priority */
-                        &g_mtp.device_disk_task_handle  /* optional task handle to create */
-                        ) != pdPASS)
-        {
-            usb_echo("usb device disk task create failed!\r\n");
-            return;
-        }
+        usb_echo("Queue create failed\r\n");
+        return kStatus_USB_Error;
     }
 
-    while (1)
+    if (kStatus_USB_Success != USB_DeviceMtpFSInit((const uint16_t *)g_mtp.storageList->storageInfo[0].rootPath))
     {
+        usb_echo("Disk init failed\r\n");
+        return kStatus_USB_Error;
     }
-}
 
-#if defined(__CC_ARM) || (defined(__ARMCC_VERSION)) || defined(__GNUC__)
-int main(void)
-#else
-void main(void)
-#endif
-{
-    BOARD_ConfigMPU();
-
-    BOARD_InitPins();
-    BOARD_BootClockRUN();
-    BOARD_SD_Config(&g_sd, NULL, USB_DEVICE_INTERRUPT_PRIORITY - 1U, NULL);
-    BOARD_InitDebugConsole();
-
-    if (xTaskCreate(APP_task,                       /* pointer to the task */
-                    (char const *)"app task",       /* task name for kernel awareness debugging */
+    if (xTaskCreate(USB_DeviceDiskOperationTask,    /* pointer to the task */
+                    (char const *)"usb disk task",  /* task name for kernel awareness debugging */
                     5000L / sizeof(portSTACK_TYPE), /* task stack size */
-                    &g_mtp,                         /* optional task startup argument */
-                    3,                              /* initial priority */
-                    &g_mtp.application_task_handle  /* optional task handle to create */
+                    NULL,                           /* optional task startup argument */
+                    4,                              /* initial priority */
+                    &g_mtp.device_disk_task_handle  /* optional task handle to create */
                     ) != pdPASS)
     {
-        usb_echo("app task create failed!\r\n");
-#if (defined(__CC_ARM) || (defined(__ARMCC_VERSION)) || defined(__GNUC__))
-        return 1;
-#else
-        return;
-#endif
+        usb_echo("usb device disk task create failed!\r\n");
+        return kStatus_USB_Error;
     }
-    vTaskStartScheduler();
 
-#if (defined(__CC_ARM) || (defined(__ARMCC_VERSION)) || defined(__GNUC__))
-    return 1;
-#endif
+    // if (kStatus_USB_Success != USB_DeviceClassInit(CONTROLLER_ID, &mtp_config_list, &g_mtp.deviceHandle))
+    // {
+    //     usb_echo("USB device init failed\r\n");
+    // }
+    // else
+    // {
+    //     usb_echo("USB device mtp demo\r\n");
+    //     g_mtp.mtpHandle = mtp_config_list.config->classHandle;
+    // }
+    return kStatus_USB_Success;
 }
+
+
+void MtpReset(usb_mtp_struct_t *mtpApp, uint8_t speed)
+{
+    // mtpApp->configured = false;
+    // mtpApp->in_reset = true;
+    // if (speed == USB_SPEED_FULL)
+    // {
+    //     PRINTF("[MTP] Reset to Full-Speed 12Mbps");
+    //     mtpApp->usb_buffer_size = FS_MTP_BULK_OUT_PACKET_SIZE;
+    // } else {
+    //     PRINTF("[MTP] Reset to High-Speed 480Mbps");
+    //     mtpApp->usb_buffer_size = HS_MTP_BULK_OUT_PACKET_SIZE;
+    // }
+}
+
+void MtpDetached(usb_mtp_struct_t *mtpApp)
+{
+    // PRINTF("[MTP] MTP detached");
+    // mtpApp->configured = false;
+    // mtpApp->in_reset = true;
+}
+
+void MtpDeinit(usb_mtp_struct_t *mtpApp)
+{
+    // mtpApp->in_reset = true;
+    // mtpApp->is_terminated = true;
+    // /* wait max 2 sec to terminate mtp thread */
+    // if (xSemaphoreTake(mtpApp->join, 2000/portTICK_PERIOD_MS) == pdTRUE) {
+    //     mtp_responder_free(mtpApp->responder);
+    //     vStreamBufferDelete(mtpApp->outputBox);
+    //     vStreamBufferDelete(mtpApp->inputBox);
+    //     vSemaphoreDelete(mtpApp->join);
+    //     mtpApp->responder = NULL;
+    //     mtpApp->outputBox = NULL;
+    //     mtpApp->outputBox = NULL;
+    //     mtpApp->join = NULL;
+    //     PRINTF("[MTP] Deinitialized");
+    // } else {
+    //     PRINTF("[MTP] Mtp Deinit failed. Unable to join thread");
+    // }
+}
+

@@ -18,7 +18,7 @@
 #include "mtp_operation.h"
 #include "mtp.h"
 
-#include "fsl_debug_console.h"
+// #include "fsl_debug_console.h"
 
 /*******************************************************************************
  * Definitions

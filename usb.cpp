@@ -18,6 +18,8 @@ extern "C"
 #include "usb_device_descriptor.h"
 #include "composite.h"
 #include "usb_phy.h"
+
+extern usb_device_composite_struct_t* USB_DeviceApplicationInit(void);
 }
 
 #ifndef DEUBG_USB
@@ -61,6 +63,9 @@ namespace bsp
 
     int usbInit(xQueueHandle queueHandle, xQueueHandle irqQueueHandle, USBDeviceListener *deviceListener)
     {
+        usbDeviceComposite = USB_DeviceApplicationInit();
+
+
         BaseType_t xReturned = xTaskCreate(reinterpret_cast<TaskFunction_t>(&bsp::usbDeviceTask),
                                            "bsp::usbDeviceTask",
                                            8192L / sizeof(portSTACK_TYPE),
@@ -144,12 +149,12 @@ namespace bsp
 
     int usbCDCReceive(void *buffer)
     {
-        if (usbDeviceComposite->cdcVcom.inputStream == nullptr)
+        if (g_cdcVcom.inputStream == nullptr)
             return 0;
 
         memset(buffer, 0, SERIAL_BUFFER_LEN);
 
-        return VirtualComRecv(&usbDeviceComposite->cdcVcom, buffer, SERIAL_BUFFER_LEN);
+        return VirtualComRecv(&g_cdcVcom, buffer, SERIAL_BUFFER_LEN);
     }
 
     int usbCDCSend(std::string *message)
@@ -162,7 +167,7 @@ namespace bsp
         uint32_t dataSent = 0;
 
         do {
-            uint32_t len =  VirtualComSend(&usbDeviceComposite->cdcVcom, dataPtr + dataSent, dataLen - dataSent);
+            uint32_t len =  VirtualComSend(&g_cdcVcom, dataPtr + dataSent, dataLen - dataSent);
             if (!len) {
                 vTaskDelay(1 / portTICK_PERIOD_MS);
                 continue;

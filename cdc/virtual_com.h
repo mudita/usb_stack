@@ -61,7 +61,7 @@ typedef struct _usb_cdc_vcom_struct
     void *userCbArg;
 } usb_cdc_vcom_struct_t;
 
-
+extern usb_cdc_vcom_struct_t g_cdcVcom;  /* CDC virtual com device structure. */
 
 /*!
  * @brief Virtual COM device initialization function.
@@ -122,7 +122,7 @@ int VirtualComRecv(usb_cdc_vcom_struct_t *cdcVcom, void* data, size_t length);
  *
  * @return A USB error code or kStatus_USB_Success.
  */
-usb_status_t VirtualComUSBCallback(uint32_t event, void *param, void *userArg);
+usb_status_t USB_DeviceCdcVcomCallback(class_handle_t handle, uint32_t event, void *param);
 
 /*!
  * @brief Virtual COM device set configuration function.

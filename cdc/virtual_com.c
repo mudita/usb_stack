@@ -30,6 +30,7 @@
             handle->userCb(handle->userCbArg, id); \
     } while (0);
 
+usb_cdc_vcom_struct_t g_cdcVcom;  /* CDC virtual com device structure. */
 
 /* Define the information relates to abstract control model */
 typedef struct _usb_cdc_acm_info {
@@ -185,11 +186,11 @@ static usb_status_t OnRecvCompleted(usb_cdc_vcom_struct_t *cdcVcom,
     return error;
 }
 
-usb_status_t VirtualComUSBCallback(uint32_t event, void *param, void *userArg)
+usb_status_t USB_DeviceCdcVcomCallback(class_handle_t handle, uint32_t event, void *param)
 {
     usb_status_t error = kStatus_USB_Error;
     uint8_t *uartBitmap;
-    usb_cdc_vcom_struct_t *cdcVcom = (usb_cdc_vcom_struct_t*)userArg;
+    usb_cdc_vcom_struct_t *cdcVcom = &g_cdcVcom;
     usb_cdc_acm_info_t *acmInfo = &s_usbCdcAcmInfo;
     usb_device_cdc_acm_request_param_struct_t *acmReqParam;
     usb_device_endpoint_callback_message_struct_t *epCbParam;

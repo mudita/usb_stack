@@ -33,16 +33,17 @@ usb_device_interface_struct_t g_UsbDeviceMtpInterface[] =
     {
         0,
         {
-            USB_MTP_ENDPOINT_COUNT, g_UsbMtpEndpoints,
+            USB_MTP_ENDPOINT_COUNT,
+			g_UsbMtpEndpoints,
         },
         NULL
     }
 };
 
 usb_device_interfaces_struct_t g_UsbDeviceMtpInterfaces[USB_MTP_INTERFACE_COUNT] = {{
-    USB_MTP_DEVICE_CLASS,
-    USB_MTP_DEVICE_SUBCLASS,
-    USB_MTP_DEVICE_PROTOCOL,
+	USB_MTP_CLASS,           /* mtp class code */
+ 	USB_MTP_SUBCLASS,        /* mtp subclass code */
+    USB_MTP_PROTOCOL,        /*mtp protocol code */
     USB_MTP_INTERFACE_INDEX,
     g_UsbDeviceMtpInterface,
     sizeof(g_UsbDeviceMtpInterface) / sizeof(usb_device_interface_struct_t),
@@ -56,7 +57,7 @@ usb_device_interface_list_t g_UsbDeviceMtpInterfaceList[USB_DEVICE_CONFIGURATION
 };
 
 /* Define class information for MTP */
-usb_device_class_struct_t g_MtpClass = {
+usb_device_class_struct_t g_UsbDeviceMtpConfig = {
     g_UsbDeviceMtpInterfaceList,
     kUSB_DeviceClassTypeMtp,
     USB_DEVICE_CONFIGURATION_COUNT,
@@ -207,9 +208,9 @@ uint8_t g_UsbDeviceConfigurationDescriptor[] = {
     USB_MTP_INTERFACE_INDEX,
     0x00,
     USB_MTP_ENDPOINT_COUNT,
-    USB_MTP_DEVICE_CLASS,
-    USB_MTP_DEVICE_SUBCLASS,
-    USB_MTP_DEVICE_PROTOCOL,
+    USB_MTP_CLASS,
+    USB_MTP_SUBCLASS,
+    USB_MTP_PROTOCOL,
     USB_STRING_MTP_INTERFACE,
     /* Endpoint Descriptors */
         USB_DESCRIPTOR_LENGTH_ENDPOINT,

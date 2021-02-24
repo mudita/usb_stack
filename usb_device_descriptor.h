@@ -130,9 +130,9 @@
 #define USB_DESCRIPTOR_TYPE_CDC_CS_INTERFACE (0x24)
 #define USB_DESCRIPTOR_TYPE_CDC_CS_ENDPOINT (0x25)
 
-#define USB_MTP_DEVICE_CLASS    (0x06) /* Still Image */
-#define USB_MTP_DEVICE_SUBCLASS (0x01)
-#define USB_MTP_DEVICE_PROTOCOL (0x01)
+#define USB_MTP_CLASS    (0x06) /* Still Image */
+#define USB_MTP_SUBCLASS (0x01)
+#define USB_MTP_PROTOCOL (0x01)
 
 #define USB_MTP_ENDPOINT_COUNT (3)
 #define USB_MTP_INTERFACE_COUNT (1)
@@ -157,6 +157,9 @@
 #define USB_DEVICE_PROTOCOL (0x00)
 
 #define USB_DEVICE_MAX_POWER (0xFA)
+
+extern usb_device_class_struct_t g_UsbDeviceCdcVcomConfig;
+extern usb_device_class_struct_t g_UsbDeviceMtpConfig;
 
 /*******************************************************************************
 * API

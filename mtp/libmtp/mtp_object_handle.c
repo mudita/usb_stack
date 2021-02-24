@@ -6,8 +6,7 @@
  */
 
 #include "usb.h"
-#include "ff.h"
-#include "diskio.h"
+#include "stdio.h"
 #include "mtp_file_system_adapter.h"
 #include "mtp_object_handle.h"
 
@@ -22,7 +21,7 @@
 /*******************************************************************************
  * Variables
  ******************************************************************************/
-static FIL s_File;
+static FILE* s_File;
 static SemaphoreHandle_t s_ObjHandleMutex = NULL;
 
 /* 2-byte unicode, the file created when session is opened is used to save object handle lists. */

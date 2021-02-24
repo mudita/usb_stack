@@ -14,7 +14,6 @@
 #include "usb_device_config.h"
 #include "MIMXRT1051_features.h"
 #include "virtual_com.h"
-#include "mtp.h"
 
 #define CONTROLLER_ID kUSB_ControllerEhci0
 #define USB_DEVICE_INTERRUPT_PRIORITY (3U)
@@ -26,8 +25,6 @@ typedef struct _usb_device_composite_struct
     volatile uint64_t hwTick;
     #endif
     usb_device_handle deviceHandle; /* USB device handle. */
-    usb_cdc_vcom_struct_t cdcVcom;  /* CDC virtual com device structure. */
-    usb_mtp_struct_t mtpApp;
 
     TaskHandle_t applicationTaskHandle; /* Application task handle. */
     TaskHandle_t deviceTaskHandle;      /* USB device task handle. */
@@ -44,4 +41,8 @@ void composite_deinit(usb_device_composite_struct_t *composite);
     (defined(FSL_FEATURE_SOC_USB_ANALOG_COUNT) && (FSL_FEATURE_SOC_USB_ANALOG_COUNT > 0U))
 void USB_UpdateHwTick(void);
 #endif
+
+extern usb_device_composite_struct_t g_composite;
+
+usb_status_t USB_DeviceCallback(usb_device_handle handle, uint32_t event, void *param);
 #endif /* _USB_DEVICE_COMPOSITE_H_ */

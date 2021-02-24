@@ -128,9 +128,9 @@ typedef struct _usb_device_class_struct
 } usb_device_class_struct_t;
 
 /*callback function pointer structure for application to provide class parameters*/
-typedef usb_status_t (*usb_device_class_callback_t)(uint32_t callbackEvent,
-                                                    void *eventParam,
-                                                    void *userArg);
+typedef usb_status_t (*usb_device_class_callback_t)(class_handle_t classHandle,
+                                                    uint32_t callbackEvent,
+                                                    void *eventParam);
 
 /*!
  * @brief Obtains the device class information structure.
@@ -142,7 +142,6 @@ typedef struct _usb_device_class_config_struct
 {
     usb_device_class_callback_t classCallback;  /*!< Class callback function to handle the device status-related event
                                                    for the specified type of class*/
-    void *classCalbackArg;
     class_handle_t classHandle;                 /*!< The class handle of the class, filled by the common driver.*/
     usb_device_class_struct_t *classInfomation; /*!< Detailed information of the class*/
 } usb_device_class_config_struct_t;

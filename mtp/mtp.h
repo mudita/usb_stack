@@ -8,33 +8,14 @@
 #ifndef __USB_MTP_H__
 #define __USB_MTP_H__
 
-#if defined(USB_DEVICE_CONFIG_EHCI) && (USB_DEVICE_CONFIG_EHCI > 0)
-#define CONTROLLER_ID kUSB_ControllerEhci0
-#endif
-#if defined(USB_DEVICE_CONFIG_KHCI) && (USB_DEVICE_CONFIG_KHCI > 0)
-#define CONTROLLER_ID kUSB_ControllerKhci0
-#endif
-#if defined(USB_DEVICE_CONFIG_LPCIP3511FS) && (USB_DEVICE_CONFIG_LPCIP3511FS > 0U)
-#define CONTROLLER_ID kUSB_ControllerLpcIp3511Fs0
-#endif
-#if defined(USB_DEVICE_CONFIG_LPCIP3511HS) && (USB_DEVICE_CONFIG_LPCIP3511HS > 0U)
-#define CONTROLLER_ID kUSB_ControllerLpcIp3511Hs0
-#endif
-
-#if defined(__GIC_PRIO_BITS)
-#define USB_DEVICE_INTERRUPT_PRIORITY (25U)
-#elif defined(__NVIC_PRIO_BITS) && (__NVIC_PRIO_BITS >= 3)
-#define USB_DEVICE_INTERRUPT_PRIORITY (6U)
-#else
-#define USB_DEVICE_INTERRUPT_PRIORITY (3U)
-#endif
+#include "mtp_operation.h"
+#include "mtp_file_system_adapter.h"
 
 /* USB MTP config*/
 /*buffer size for mtp example. the larger the buffer size ,the faster the data transfer speed is ,*/
 /*the block size should be multiple of 512, the least value is 1024*/
 
 #define USB_DEVICE_MTP_TRANSFER_BUFF_SIZE (512 * 9U)
-
 
 typedef struct _usb_mtp_struct
 {
@@ -64,4 +45,11 @@ typedef struct _usb_mtp_struct
     uint8_t attach;
 } usb_mtp_struct_t;
 
+extern usb_mtp_struct_t g_mtp;
+
+usb_status_t USB_DeviceMtpCallback(class_handle_t handle, uint32_t event, void *param);
+usb_status_t USB_DeviceMtpApplicationInit(void* arg);
+void MtpReset(usb_mtp_struct_t *mtpApp, uint8_t speed);
+void MtpDetached(usb_mtp_struct_t *mtpApp);
+void MtpDeinit(usb_mtp_struct_t *mtpApp);
 #endif

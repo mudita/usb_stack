@@ -112,7 +112,7 @@ static const usb_device_class_map_t s_UsbDeviceClassInterfaceMap[] = {
 #endif
 
 #if ((defined(USB_DEVICE_CONFIG_MTP)) && (USB_DEVICE_CONFIG_MTP > 0U))
-    {USB_DeviceClassMtpInit, USB_DeviceClassMtpDeinit, USB_DeviceClassMtpEvent, kUSB_DeviceClassTypeMtp},
+    {USB_DeviceMtpInit, USB_DeviceMtpDeinit, USB_DeviceMtpEvent, kUSB_DeviceClassTypeMtp},
 #endif
     {(usb_device_class_init_call_t)NULL, (usb_device_class_deinit_call_t)NULL, (usb_device_class_event_callback_t)NULL,
      (usb_device_class_type_t)0},

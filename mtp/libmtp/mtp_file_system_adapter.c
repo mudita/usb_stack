@@ -6,9 +6,9 @@
  */
 
 #include "usb.h"
-#include "ff.h"
-#include "diskio.h"
-#include "sdmmc_config.h"
+// #include "ff.h"
+// #include "diskio.h"
+// #include "sdmmc_config.h"
 #include "mtp_file_system_adapter.h"
 
 /*******************************************************************************
