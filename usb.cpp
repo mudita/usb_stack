@@ -177,6 +177,10 @@ namespace bsp
     {
         USBDeviceStatus notification;
         switch (event) {
+        case VCOM_CONFIGURED:
+            notification = USBDeviceStatus::Configured;
+            xQueueSend(USBIrqQueue, &notification, 0);
+            break;
         case VCOM_ATTACHED:
             notification = USBDeviceStatus::Connected;
             xQueueSend(USBIrqQueue, &notification, 0);
