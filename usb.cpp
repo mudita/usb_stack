@@ -64,8 +64,7 @@ namespace bsp
 
     int usbInit(xQueueHandle queueHandle, xQueueHandle irqQueueHandle, USBDeviceListener *deviceListener)
     {
-        usbDeviceComposite = USB_DeviceApplicationInit();
-
+        usbDeviceComposite = USB_DeviceApplicationInit(usbDeviceStateCB, NULL);
 
         BaseType_t xReturned = xTaskCreate(reinterpret_cast<TaskFunction_t>(&bsp::usbDeviceTask),
                                            "bsp::usbDeviceTask",
@@ -82,7 +81,6 @@ namespace bsp
 
         USBReceiveQueue                = queueHandle;
         USBIrqQueue                    = irqQueueHandle;
-        usbDeviceComposite = composite_init(usbDeviceStateCB, NULL);
 
         return (usbDeviceComposite == NULL) ? -1 : 0;
     }

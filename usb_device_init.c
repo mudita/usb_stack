@@ -114,7 +114,7 @@ static usb_device_class_config_list_struct_t g_UsbDeviceCompositeConfigList = {
 };
 
 
-usb_device_composite_struct_t* USB_DeviceApplicationInit(void)
+usb_device_composite_struct_t* USB_DeviceApplicationInit(userCbFunc callback, void* userArg)
 {
     if (USB_DeviceClockInit() != kStatus_USB_Success) {
         LOG_ERROR("[Composite] USB Device Clock init failed");
@@ -142,7 +142,7 @@ usb_device_composite_struct_t* USB_DeviceApplicationInit(void)
     else
     {
         /* TODO: pass event handling function here */
-        if (VirtualComInit(&g_cdcVcom, g_CompositeClassConfig[1].classHandle, NULL, NULL) != kStatus_USB_Success)
+        if (VirtualComInit(&g_cdcVcom, g_CompositeClassConfig[1].classHandle, callback, userArg) != kStatus_USB_Success)
             LOG_ERROR("[Composite] VirtualCom initialization failed");
 
         if (USB_DeviceMtpApplicationInit(g_CompositeClassConfig[0].classHandle) != kStatus_USB_Success)
