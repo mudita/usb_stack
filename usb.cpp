@@ -20,6 +20,7 @@ extern "C"
 #include "usb_phy.h"
 
 extern usb_device_composite_struct_t* USB_DeviceApplicationInit(void);
+extern void USB_DeviceApplicationDeinit(usb_device_composite_struct_t *composite);
 }
 
 #ifndef DEUBG_USB
@@ -89,7 +90,7 @@ namespace bsp
     void usbDeinit()
     {
         LOG_INFO("usbDeinit");
-        composite_deinit(usbDeviceComposite);
+        USB_DeviceApplicationDeinit(usbDeviceComposite);
     }
 
     void usbDeviceTask(void *handle)

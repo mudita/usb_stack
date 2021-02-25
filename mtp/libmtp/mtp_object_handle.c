@@ -26,17 +26,7 @@ static SemaphoreHandle_t s_ObjHandleMutex = NULL;
 
 /* 2-byte unicode, the file created when session is opened is used to save object handle lists. */
 USB_RAM_ADDRESS_ALIGNMENT(2U)
-const uint8_t g_ObjHandlePath[] = {
-#if defined(SD_DISK_ENABLE)
-    SDDISK + '0',
-#elif defined(MMC_DISK_ENABLE)
-    MMCDISK + '0',
-#else
-    '0',
-#endif
-    0x00U,        ':',   0x00U, '/',   0x00U, 'm',   0x00U, 't',   0x00U, 'p',   0x00U, '_',   0x00U, 'o',   0x00U,
-    'b',          0x00U, 'j',   0x00U, '.',   0x00U, 't',   0x00U, 'x',   0x00U, 't',   0x00U, 0x00U, 0x00U,
-};
+const char g_ObjHandlePath[] = "/sys/user/mtp_obj.txt";
 
 /*******************************************************************************
  * Code
@@ -44,8 +34,6 @@ const uint8_t g_ObjHandlePath[] = {
 
 usb_status_t USB_DeviceMtpObjHandleInit(void)
 {
-    FRESULT result;
-
     if (NULL != s_ObjHandleMutex)
     {
         (void)vSemaphoreDelete(s_ObjHandleMutex);
@@ -58,15 +46,11 @@ usb_status_t USB_DeviceMtpObjHandleInit(void)
         return kStatus_USB_Error;
     }
 
-    (void)f_close(&s_File);
+    (void)fclose(s_File);
 
-    (void)f_unlink((const TCHAR *)&g_ObjHandlePath[0]);
+    s_File = fopen(&g_ObjHandlePath[0], "w+");
 
-    result = f_open(&s_File, (const TCHAR *)&g_ObjHandlePath[0], FA_READ | FA_WRITE | FA_CREATE_ALWAYS);
-
-    (void)f_chmod((const TCHAR *)&g_ObjHandlePath[0], AM_SYS | AM_HID, AM_SYS | AM_HID);
-
-    if (result != FR_OK)
+    if (!s_File)
     {
         return kStatus_USB_Error;
     }
@@ -76,41 +60,32 @@ usb_status_t USB_DeviceMtpObjHandleInit(void)
 
 usb_status_t USB_DeviceMtpObjHandleDeinit(void)
 {
-    FRESULT result;
-
     (void)xSemaphoreTakeRecursive(s_ObjHandleMutex, portMAX_DELAY);
 
-    (void)f_close(&s_File);
-
-    result = f_unlink((const TCHAR *)&g_ObjHandlePath[0]);
+    (void)fclose(s_File);
 
     (void)xSemaphoreGiveRecursive(s_ObjHandleMutex);
-
-    if (result != FR_OK)
-    {
-        return kStatus_USB_Error;
-    }
 
     return kStatus_USB_Success;
 }
 
 usb_status_t USB_DeviceMtpObjHandleRead(uint32_t objHandle, usb_mtp_obj_handle_t *objHandleStruct)
 {
-    FRESULT result;
+    uint32_t result;
     uint32_t size;
 
     (void)xSemaphoreTakeRecursive(s_ObjHandleMutex, portMAX_DELAY);
 
-    result = f_lseek(&s_File, (objHandle - 1U) * sizeof(usb_mtp_obj_handle_t));
+    result = fseek(s_File, (objHandle - 1U) * sizeof(usb_mtp_obj_handle_t), SEEK_SET);
 
-    if (result == FR_OK)
+    if (!result)
     {
-        result = f_read(&s_File, objHandleStruct, sizeof(usb_mtp_obj_handle_t), (UINT *)&size);
+        size = fread(objHandleStruct, sizeof(usb_mtp_obj_handle_t), 1, s_File);
     }
 
     (void)xSemaphoreGiveRecursive(s_ObjHandleMutex);
 
-    if ((result != FR_OK) || (size < sizeof(usb_mtp_obj_handle_t)))
+    if ((result) || (size < sizeof(usb_mtp_obj_handle_t)))
     {
         return kStatus_USB_Error;
     }
@@ -120,21 +95,21 @@ usb_status_t USB_DeviceMtpObjHandleRead(uint32_t objHandle, usb_mtp_obj_handle_t
 
 usb_status_t USB_DeviceMtpObjHandleWrite(uint32_t objHandle, usb_mtp_obj_handle_t *objHandleStruct)
 {
-    FRESULT result;
+    uint32_t result;
     uint32_t size;
 
     (void)xSemaphoreTakeRecursive(s_ObjHandleMutex, portMAX_DELAY);
 
-    result = f_lseek(&s_File, (objHandle - 1U) * sizeof(usb_mtp_obj_handle_t));
+    result = fseek(s_File, (objHandle - 1U) * sizeof(usb_mtp_obj_handle_t), SEEK_SET);
 
-    if (result == FR_OK)
+    if (!result)
     {
-        result = f_write(&s_File, objHandleStruct, sizeof(usb_mtp_obj_handle_t), (UINT *)&size);
+        size = fwrite(objHandleStruct, sizeof(usb_mtp_obj_handle_t), 1, s_File);
     }
 
     (void)xSemaphoreGiveRecursive(s_ObjHandleMutex);
 
-    if ((result != FR_OK) || (size < sizeof(usb_mtp_obj_handle_t)))
+    if ((result) || (size < sizeof(usb_mtp_obj_handle_t)))
     {
         return kStatus_USB_Error;
     }
