@@ -19,7 +19,7 @@ extern "C"
 #include "composite.h"
 #include "usb_phy.h"
 
-extern usb_device_composite_struct_t* USB_DeviceApplicationInit(void);
+extern usb_device_composite_struct_t* USB_DeviceApplicationInit(userCbFunc callback, void* userArg);
 extern void USB_DeviceApplicationDeinit(usb_device_composite_struct_t *composite);
 }
 

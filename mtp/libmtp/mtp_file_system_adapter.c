@@ -6,9 +6,13 @@
  */
 
 #include "usb.h"
-// #include "ff.h"
-// #include "diskio.h"
-// #include "sdmmc_config.h"
+#include <stdio.h>
+#include <sys/types.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <time.h>
+
 #include "mtp_file_system_adapter.h"
 
 /*******************************************************************************
@@ -31,17 +35,15 @@
 
 typedef struct
 {
-    FILE file;
+    FILE *file;
     uint8_t flags;
 } usb_device_mtp_file_instance_t;
 
-typedef uint8_t DIR;
-
-// typedef struct
-// {
-//     DIR dir;
-//     uint8_t flags;
-// } usb_device_mtp_dir_instance_t;
+typedef struct
+{
+    DIR *dir;
+    uint8_t flags;
+} usb_device_mtp_dir_instance_t;
 
 /*******************************************************************************
  * Prototypes
@@ -67,7 +69,7 @@ static usb_status_t USB_DeviceMtpAllocateFileHandle(FILE **file)
         if (s_FileInstance[i].flags == 0U)
         {
             s_FileInstance[i].flags = 1U;
-            *file                   = &s_FileInstance[i].file;
+            *file                   = s_FileInstance[i].file;
             return kStatus_USB_Success;
         }
     }
@@ -81,7 +83,7 @@ static usb_status_t USB_DeviceMtpFreeFileHandle(FILE *file)
 
     for (i = 0; i < USB_DEVICE_MTP_FILE_INSTANCE; i++)
     {
-        if ((s_FileInstance[i].flags != 0U) && (&s_FileInstance[i].file == file))
+        if ((s_FileInstance[i].flags != 0U) && (s_FileInstance[i].file == file))
         {
             s_FileInstance[i].flags = 0U;
             return kStatus_USB_Success;
@@ -93,33 +95,33 @@ static usb_status_t USB_DeviceMtpFreeFileHandle(FILE *file)
 
 // static usb_status_t USB_DeviceMtpAllocateDirHandle(DIR **dir)
 // {
-//     // uint32_t i;
+//     uint32_t i;
 
-//     // for (i = 0; i < USB_DEVICE_MTP_DIR_INSTANCE; i++)
-//     // {
-//     //     if (s_DirInstance[i].flags == 0U)
-//     //     {
-//     //         s_DirInstance[i].flags = 1U;
-//     //         *dir                   = &s_DirInstance[i].dir;
-//     //         return kStatus_USB_Success;
-//     //     }
-//     // }
+//     for (i = 0; i < USB_DEVICE_MTP_DIR_INSTANCE; i++)
+//     {
+//         if (s_DirInstance[i].flags == 0U)
+//         {
+//             s_DirInstance[i].flags = 1U;
+//             *dir                   = s_DirInstance[i].dir;
+//             return kStatus_USB_Success;
+//         }
+//     }
 
 //     return kStatus_USB_Busy;
 // }
 
 // static usb_status_t USB_DeviceMtpFreeDirHandle(DIR *dir)
 // {
-//     // uint32_t i;
+//     uint32_t i;
 
-//     // for (i = 0; i < USB_DEVICE_MTP_DIR_INSTANCE; i++)
-//     // {
-//     //     if ((s_DirInstance[i].flags != 0U) && (&s_DirInstance[i].dir == dir))
-//     //     {
-//     //         s_DirInstance[i].flags = 0U;
-//     //         return kStatus_USB_Success;
-//     //     }
-//     // }
+//     for (i = 0; i < USB_DEVICE_MTP_DIR_INSTANCE; i++)
+//     {
+//         if ((s_DirInstance[i].flags != 0U) && (s_DirInstance[i].dir == dir))
+//         {
+//             s_DirInstance[i].flags = 0U;
+//             return kStatus_USB_Success;
+//         }
+//     }
 
 //     return kStatus_USB_Busy;
 // }
@@ -247,66 +249,75 @@ usb_status_t USB_DeviceMtpWrite(usb_device_mtp_file_handle_t file, void *buffer,
     return kStatus_USB_Success;
 }
 
+#define IS_READONLY(mode) ((mode & (S_IWUSR | S_IWGRP | S_IWOTH)) == 0)
+#define IS_DIRECTORY(mode) (mode & S_IFDIR)
+
 usb_status_t USB_DeviceMtpFstat(const uint16_t *fileName, usb_device_mtp_file_info_t *fileInfo)
 {
-    // FILINFO fno;
-    // uint32_t count;
-    // uint8_t *src;
-    // uint8_t *dest;
+    struct stat fno;
+    uint32_t count;
+    uint8_t *src;
+    uint8_t *dest;
 
-    // if (fileInfo == NULL)
-    // {
-    //     return kStatus_USB_InvalidParameter;
-    // }
+    if (fileInfo == NULL)
+    {
+        return kStatus_USB_InvalidParameter;
+    }
 
-    // if (f_stat((const TCHAR *)fileName, &fno) != FR_OK)
-    // {
-    //     return kStatus_USB_Error; /* return on error */
-    // }
+    FILE* fd = fopen((const char*)fileName, "r");
+
+    if (fstat(fileno(fd), &fno) != 0)
+    {
+        return kStatus_USB_Error; /* return on error */
+    }
+
+    fclose(fd);
 
     // if ((fno.fattrib & AM_SYS) != 0U)
     // {
     //     return kStatus_USB_Error; /* do not expose system directories or files */
     // }
 
-    // fileInfo->size = fno.fsize;
-    // fileInfo->dateUnion.dateBitField.year =
-    //     ((fno.fdate & DATE_YEAR_MASK) >> DATE_YEAR_SHIFT) + 1980U; /* Year origin from 1980 */
-    // fileInfo->dateUnion.dateBitField.month  = (fno.fdate & DATE_MONTH_MASK) >> DATE_MONTH_SHIFT;
-    // fileInfo->dateUnion.dateBitField.day    = (fno.fdate & DATE_DAY_MASK) >> DATE_DAY_SHIFT;
-    // fileInfo->timeUnion.timeBitField.hour   = (fno.ftime & TIME_HOUR_MASK) >> TIME_HOUR_SHIFT;
-    // fileInfo->timeUnion.timeBitField.minute = (fno.ftime & TIME_MINUTE_MASK) >> TIME_MINUTE_SHIFT;
-    // fileInfo->timeUnion.timeBitField.second = ((fno.ftime & TIME_SECOND_MASK) >> TIME_SECOND_SHIFT)
-    //                                           << 1U; /* Second / 2 (0...29) */
+    fileInfo->size = fno.st_size;
 
-    // fileInfo->attrib = 0U;
-    // if (fno.fattrib & AM_DIR)
-    // {
-    //     fileInfo->attrib |= USB_DEVICE_MTP_DIR;
-    // }
-    // if (fno.fattrib & AM_RDO)
-    // {
-    //     fileInfo->attrib |= USB_DEVICE_MTP_READ_ONLY;
-    // }
+    struct tm *time = gmtime(&fno.st_mtime);
 
-    // /* copy file name, unicode encoding. */
-    // src   = (uint8_t *)&fno.fname[0];
-    // dest  = (uint8_t *)&fileInfo->name[0];
-    // count = 0;
-    // while ((src[count] != 0U) || (src[count + 1U] != 0U) || ((count % 2U) != 0U))
-    // {
-    //     dest[count] = src[count];
-    //     count++;
-    // }
-    // dest[count]      = 0U;
-    // dest[count + 1U] = 0U; /* terminate with 0x00, 0x00 */
+    fileInfo->dateUnion.dateBitField.year   = time->tm_year; // ((fno.st_mtime & DATE_YEAR_MASK) >> DATE_YEAR_SHIFT) + 1980U; /* Year origin from 1980 */
+    fileInfo->dateUnion.dateBitField.month  = time->tm_mon;  // (fno.st_ & DATE_MONTH_MASK) >> DATE_MONTH_SHIFT;
+    fileInfo->dateUnion.dateBitField.day    = time->tm_mday; // (fno.st_mtime & DATE_DAY_MASK) >> DATE_DAY_SHIFT;
+    fileInfo->timeUnion.timeBitField.hour   = time->tm_hour; // (fno.ftime & TIME_HOUR_MASK) >> TIME_HOUR_SHIFT;
+    fileInfo->timeUnion.timeBitField.minute = time->tm_min;  // (fno.ftime & TIME_MINUTE_MASK) >> TIME_MINUTE_SHIFT;
+    fileInfo->timeUnion.timeBitField.second = time->tm_sec;  // ((fno.ftime & TIME_SECOND_MASK) >> TIME_SECOND_SHIFT) << 1U; /* Second / 2 (0...29) */
+
+    fileInfo->attrib = 0U;
+
+    if (IS_DIRECTORY(fno.st_mode))
+    {
+        fileInfo->attrib |= USB_DEVICE_MTP_DIR;
+    }
+    if (IS_READONLY(fno.st_mode))
+    {
+        fileInfo->attrib |= USB_DEVICE_MTP_READ_ONLY;
+    }
+
+    /* copy file name, unicode encoding. */
+    src   = (uint8_t *)fileName;
+    dest  = (uint8_t *)&fileInfo->name[0];
+    count = 0;
+    while ((src[count] != 0U) || (src[count + 1U] != 0U) || ((count % 2U) != 0U))
+    {
+        dest[count] = src[count];
+        count++;
+    }
+    dest[count]      = 0U;
+    dest[count + 1U] = 0U; /* terminate with 0x00, 0x00 */
 
     return kStatus_USB_Success;
 }
 
 usb_status_t USB_DeviceMtpUtime(const uint16_t *fileName, usb_device_mtp_file_time_stamp_t *timeStamp)
 {
-    // FILINFO fno;
+    // struct stat fno;
 
     // fno.fdate = (WORD)((((WORD)timeStamp->year - 1980U) << 9U) | ((WORD)timeStamp->month << 5U) | (WORD)timeStamp->day);
     // fno.ftime =
