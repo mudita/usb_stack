@@ -8,6 +8,7 @@
 #include <stdbool.h>
 #include <string.h>
 
+#include "FreeRTOS.h"
 #include "defines.h"
 #include "mtp_responder.h"
 #include "mtp_container.h"
@@ -215,13 +216,13 @@ void mtp_responder_init(mtp_responder_t *mtp)
 
 mtp_responder_t* mtp_responder_alloc(void)
 {
-    return malloc(sizeof(mtp_responder_t));
+    return pvPortMalloc(sizeof(mtp_responder_t));
 }
 
 void mtp_responder_free(mtp_responder_t *mtp)
 {
     assert(mtp);
-    free(mtp);
+    vPortFree(mtp);
 }
 
 void mtp_responder_set_data_buffer(mtp_responder_t *mtp, void *buffer, size_t size)
