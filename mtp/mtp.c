@@ -37,7 +37,7 @@
 #endif
 
 #if (USB_DEVICE_CONFIG_USE_TASK < 1)
-#error This application requires USB_DEVICE_CONFIG_USE_TASK value defined > 0 in usb_device_config.h. Please recompile with this option.
+// #error This application requires USB_DEVICE_CONFIG_USE_TASK value defined > 0 in usb_device_config.h. Please recompile with this option.
 #endif
 // #include "sdmmc_config.h"
 /*******************************************************************************
@@ -689,15 +689,6 @@ usb_status_t USB_DeviceMtpApplicationInit(void* arg)
         return kStatus_USB_Error;
     }
 
-    // if (kStatus_USB_Success != USB_DeviceClassInit(CONTROLLER_ID, &mtp_config_list, &g_mtp.deviceHandle))
-    // {
-    //     usb_echo("USB device init failed\r\n");
-    // }
-    // else
-    // {
-    //     usb_echo("USB device mtp demo\r\n");
-    //     g_mtp.mtpHandle = mtp_config_list.config->classHandle;
-    // }
     return kStatus_USB_Success;
 }
 
