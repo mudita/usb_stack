@@ -4,6 +4,7 @@
  * Proprietary and confidential
  */
 #include "FreeRTOS.h"
+#include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 
@@ -59,7 +60,7 @@ static handle_t db_search(struct mtp_db *db, const char *key)
 
 struct mtp_db* mtp_db_alloc(void)
 {
-    struct mtp_db *db = pvPortMalloc(sizeof(struct mtp_db));
+    struct mtp_db *db = malloc(sizeof(struct mtp_db));
     if (!db) {
         LOG("Not enough memory!\n");
     }
@@ -68,7 +69,7 @@ struct mtp_db* mtp_db_alloc(void)
 
 void mtp_db_free(struct mtp_db* db)
 {
-    vPortFree(db);
+    free(db);
 }
 
 uint32_t mtp_db_add(struct mtp_db *db, const char *key)

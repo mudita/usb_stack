@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "defines.h"
 #include "mtp_responder.h"
