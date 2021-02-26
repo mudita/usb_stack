@@ -238,27 +238,33 @@ usb_device_mtp_obj_prop_list_t g_ObjPropList = {
 
 /* 2-byte unicode */
 USB_DMA_INIT_DATA_ALIGN(2U)
-uint8_t g_StorageRootPath[] = {
-#if defined(SD_DISK_ENABLE)
-    SDDISK + '0',
-#elif defined(MMC_DISK_ENABLE)
-    MMCDISK + '0',
-#else
-    '0',
-#endif
-    0x00U,        ':', 0x00U, '/', 0x00U, 0x00U, 0x00U,
+const char g_StorageRootPath[MTP_STORAGE_COUNT][MTP_PATH_MAX_LEN >> 1U] = {
+    {"/sys/user/music"},
+    {"/sys/user/backup"}
 };
 
-usb_device_mtp_storage_info_t g_StorageInfo[MTP_STORAGE_COUNT] = {{
-    .rootPath         = &g_StorageRootPath[0], /* 2-byte unicode */
-    .storageDesc      = "NXP MTP",             /* ascll code, will convert to unicode when host gets this field. */
-    .volumeID         = NULL,                  /* ascll code, will convert to unicode when host gets this field. */
-    .storageID        = 0x00010001U,           /* should ensure its uniqueness. */
-    .storageType      = MTP_STORAGE_FIXED_RAM,
-    .fileSystemType   = MTP_STORAGE_FILESYSTEM_GENERIC_HIERARCHICAL,
-    .accessCapability = MTP_STORAGE_READ_WRITE,
-    .flag             = 0U,
-}};
+usb_device_mtp_storage_info_t g_StorageInfo[MTP_STORAGE_COUNT] = {
+    {
+        .rootPath         = &g_StorageRootPath[1][0], /* 2-byte unicode */
+        .storageDesc      = "Music",             /* ascll code, will convert to unicode when host gets this field. */
+        .volumeID         = NULL,                  /* ascll code, will convert to unicode when host gets this field. */
+        .storageID        = 0x00010001U,           /* should ensure its uniqueness. */
+        .storageType      = MTP_STORAGE_FIXED_RAM,
+        .fileSystemType   = MTP_STORAGE_FILESYSTEM_GENERIC_HIERARCHICAL,
+        .accessCapability = MTP_STORAGE_READ_WRITE,
+        .flag             = 0U,
+    },
+    {
+        .rootPath         = &g_StorageRootPath[2][0], /* 2-byte unicode */
+        .storageDesc      = "Backup",             /* ascll code, will convert to unicode when host gets this field. */
+        .volumeID         = NULL,                  /* ascll code, will convert to unicode when host gets this field. */
+        .storageID        = 0x00010002U,           /* should ensure its uniqueness. */
+        .storageType      = MTP_STORAGE_FIXED_ROM,
+        .fileSystemType   = MTP_STORAGE_FILESYSTEM_GENERIC_FLAT,
+        .accessCapability = MTP_STORAGE_READ_ONLY_WITHOUT_DELETE,
+        .flag             = 0U,
+    }
+};
 
 usb_device_mtp_storage_list_t g_StorageList = {
     .storageInfo  = &g_StorageInfo[0],

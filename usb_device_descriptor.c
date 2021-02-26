@@ -11,23 +11,46 @@
 #include "usb_device.h"
 #include "usb_string_descriptor.h"
 #include "usb_device_class.h"
-#include "usb_device_cdc_acm.h"
 
 #include "usb_device_descriptor.h"
 
-usb_device_endpoint_struct_t g_UsbMtpEndpoints[USB_MTP_ENDPOINT_COUNT] =
-{
+/*******************************************************************************
+ * Definitions
+ ******************************************************************************/
+
+/*******************************************************************************
+ * Prototypes
+ ******************************************************************************/
+
+/*******************************************************************************
+ * Variables
+ ******************************************************************************/
+/* mtp endpoint information */
+usb_device_endpoint_struct_t g_UsbMtpEndpoints[USB_MTP_ENDPOINT_COUNT] = {
+    /* mtp bulk in endpoint */
     {
-        USB_MTP_BULK_IN_ENDPOINT | (USB_IN << 7U), USB_ENDPOINT_BULK, HS_MTP_BULK_IN_PACKET_SIZE, 0U,
+        USB_MTP_BULK_IN_ENDPOINT | (USB_IN << 7U),
+		USB_ENDPOINT_BULK,
+		HS_MTP_BULK_IN_PACKET_SIZE,
+		0U,
     },
+    /* mtp bulk out endpoint */
     {
-        USB_MTP_BULK_OUT_ENDPOINT | (USB_OUT << 7U), USB_ENDPOINT_BULK, HS_MTP_BULK_OUT_PACKET_SIZE, 0U,
+        USB_MTP_BULK_OUT_ENDPOINT | (USB_OUT << 7U),
+		USB_ENDPOINT_BULK,
+		HS_MTP_BULK_OUT_PACKET_SIZE,
+		0U,
     },
+    /* mtp interrupt in endpoint */
     {
-        USB_MTP_INTR_IN_ENDPOINT | (USB_IN << 7U), USB_ENDPOINT_INTERRUPT, HS_MTP_INTR_IN_PACKET_SIZE, 0U,
+        USB_MTP_INTR_IN_ENDPOINT | (USB_IN << 7U),
+		USB_ENDPOINT_INTERRUPT,
+		HS_MTP_INTR_IN_PACKET_SIZE,
+		0U,
     }
 };
 
+/* mtp interface information */
 usb_device_interface_struct_t g_UsbDeviceMtpInterface[] =
 {
     {
@@ -166,6 +189,23 @@ uint8_t g_UsbDeviceDescriptor[] = {
     USB_DEVICE_CONFIGURATION_COUNT,
 };
 
+#define USB_CONFIGURATION_LEN (USB_DESCRIPTOR_LENGTH_CONFIGURE + \
+        USB_IAD_DESC_SIZE + \
+        USB_DESCRIPTOR_LENGTH_INTERFACE + \
+        USB_DESCRIPTOR_LENGTH_CDC_HEADER_FUNC + \
+        USB_DESCRIPTOR_LENGTH_CDC_CALL_MANAG + \
+        USB_DESCRIPTOR_LENGTH_CDC_ABSTRACT + \
+        USB_DESCRIPTOR_LENGTH_CDC_UNION_FUNC + \
+        USB_DESCRIPTOR_LENGTH_ENDPOINT + \
+        USB_DESCRIPTOR_LENGTH_INTERFACE + \
+        USB_DESCRIPTOR_LENGTH_ENDPOINT + \
+        USB_DESCRIPTOR_LENGTH_ENDPOINT + \
+        USB_DESCRIPTOR_LENGTH_INTERFACE + \
+        3*USB_DESCRIPTOR_LENGTH_ENDPOINT)
+
+// #define USB_CONFIGURATION_LEN (USB_DESCRIPTOR_LENGTH_CONFIGURE + USB_DESCRIPTOR_LENGTH_INTERFACE + \
+//                       USB_DESCRIPTOR_LENGTH_ENDPOINT + USB_DESCRIPTOR_LENGTH_ENDPOINT + USB_DESCRIPTOR_LENGTH_ENDPOINT)
+
 /* Define configuration descriptor */
 USB_DMA_INIT_DATA_ALIGN(USB_DATA_ALIGN_SIZE)
 uint8_t g_UsbDeviceConfigurationDescriptor[] = {
@@ -173,20 +213,8 @@ uint8_t g_UsbDeviceConfigurationDescriptor[] = {
     USB_DESCRIPTOR_LENGTH_CONFIGURE,
     USB_DESCRIPTOR_TYPE_CONFIGURE,
     /* Total length of data returned for this configuration. */
-    USB_SHORT_GET_LOW(
-        USB_DESCRIPTOR_LENGTH_CONFIGURE +
-        USB_IAD_DESC_SIZE +
-        USB_DESCRIPTOR_LENGTH_INTERFACE + USB_DESCRIPTOR_LENGTH_CDC_HEADER_FUNC + USB_DESCRIPTOR_LENGTH_CDC_CALL_MANAG +
-        USB_DESCRIPTOR_LENGTH_CDC_ABSTRACT + USB_DESCRIPTOR_LENGTH_CDC_UNION_FUNC + USB_DESCRIPTOR_LENGTH_ENDPOINT +
-        USB_DESCRIPTOR_LENGTH_INTERFACE + USB_DESCRIPTOR_LENGTH_ENDPOINT + USB_DESCRIPTOR_LENGTH_ENDPOINT +
-        USB_DESCRIPTOR_LENGTH_INTERFACE + 3*USB_DESCRIPTOR_LENGTH_ENDPOINT), /* MTP */
-    USB_SHORT_GET_HIGH(
-        USB_DESCRIPTOR_LENGTH_CONFIGURE +
-        USB_IAD_DESC_SIZE +
-        USB_DESCRIPTOR_LENGTH_INTERFACE + USB_DESCRIPTOR_LENGTH_CDC_HEADER_FUNC + USB_DESCRIPTOR_LENGTH_CDC_CALL_MANAG +
-        USB_DESCRIPTOR_LENGTH_CDC_ABSTRACT + USB_DESCRIPTOR_LENGTH_CDC_UNION_FUNC + USB_DESCRIPTOR_LENGTH_ENDPOINT +
-        USB_DESCRIPTOR_LENGTH_INTERFACE + USB_DESCRIPTOR_LENGTH_ENDPOINT + USB_DESCRIPTOR_LENGTH_ENDPOINT +
-        USB_DESCRIPTOR_LENGTH_INTERFACE + 3*USB_DESCRIPTOR_LENGTH_ENDPOINT), /* MTP */
+    USB_SHORT_GET_LOW(USB_CONFIGURATION_LEN), /* MTP */
+    USB_SHORT_GET_HIGH(USB_CONFIGURATION_LEN), /* MTP */
     USB_INTERFACE_COUNT,
     /* Value to use as an argument to the SetConfiguration() request to select this configuration */
     USB_COMPOSITE_CONFIGURE_INDEX,
@@ -197,9 +225,18 @@ uint8_t g_UsbDeviceConfigurationDescriptor[] = {
     (USB_DESCRIPTOR_CONFIGURE_ATTRIBUTE_D7_MASK) |
         (USB_DEVICE_CONFIG_SELF_POWER << USB_DESCRIPTOR_CONFIGURE_ATTRIBUTE_SELF_POWERED_SHIFT) |
         (USB_DEVICE_CONFIG_REMOTE_WAKEUP << USB_DESCRIPTOR_CONFIGURE_ATTRIBUTE_REMOTE_WAKEUP_SHIFT),
-    /* Maximum power consumption of the USB * device from the bus in this specific * configuration when the device is
-       fully * operational. Expressed in 2 mA units *  (i.e., 50 = 100 mA).  */
-    USB_DEVICE_MAX_POWER,
+    /* Configuration characteristics
+ D7: Reserved (set to one)
+ D6: Self-powered
+ D5: Remote Wakeup
+ D4...0: Reserved (reset to zero)
+*/
+    USB_DEVICE_MAX_POWER,            /* Maximum power consumption of the USB
+                                      * device from the bus in this specific
+                                      * configuration when the device is fully
+                                      * operational. Expressed in 2 mA units
+                                      *  (i.e., 50 = 100 mA).
+                                      */
 
     /***** MTP Device Class *****/
     /* Interface Descriptors */
@@ -213,29 +250,31 @@ uint8_t g_UsbDeviceConfigurationDescriptor[] = {
     USB_MTP_PROTOCOL,
     USB_STRING_MTP_INTERFACE,
     /* Endpoint Descriptors */
-        USB_DESCRIPTOR_LENGTH_ENDPOINT,
-        USB_DESCRIPTOR_TYPE_ENDPOINT,
-        USB_MTP_BULK_IN_ENDPOINT  | (USB_IN << 7U),
-        USB_ENDPOINT_BULK,
-        USB_SHORT_GET_LOW(HS_MTP_BULK_IN_PACKET_SIZE),
-        USB_SHORT_GET_HIGH(HS_MTP_BULK_IN_PACKET_SIZE),
-        0x00,
+    USB_DESCRIPTOR_LENGTH_ENDPOINT,
+    USB_DESCRIPTOR_TYPE_ENDPOINT,
+    USB_MTP_BULK_IN_ENDPOINT  | (USB_IN << 7U),
+    USB_ENDPOINT_BULK,
+    USB_SHORT_GET_LOW(HS_MTP_BULK_IN_PACKET_SIZE),
+    USB_SHORT_GET_HIGH(HS_MTP_BULK_IN_PACKET_SIZE),
+    0x00,
 
-        USB_DESCRIPTOR_LENGTH_ENDPOINT,
-        USB_DESCRIPTOR_TYPE_ENDPOINT,
-        USB_MTP_BULK_OUT_ENDPOINT  | (USB_OUT << 7U),
-        USB_ENDPOINT_BULK,
-        USB_SHORT_GET_LOW(HS_MTP_BULK_IN_PACKET_SIZE),
-        USB_SHORT_GET_HIGH(HS_MTP_BULK_IN_PACKET_SIZE),
-        0x00,
+    USB_DESCRIPTOR_LENGTH_ENDPOINT,
+    USB_DESCRIPTOR_TYPE_ENDPOINT,
+    USB_MTP_BULK_OUT_ENDPOINT  | (USB_OUT << 7U),
+    /* The address of the endpoint on the USB device
+                         described by this descriptor. */
+    USB_ENDPOINT_BULK, /* This field describes the endpoint's attributes */
+    USB_SHORT_GET_LOW(HS_MTP_BULK_IN_PACKET_SIZE),
+    USB_SHORT_GET_HIGH(HS_MTP_BULK_IN_PACKET_SIZE),
+    0x00,
 
-        USB_DESCRIPTOR_LENGTH_ENDPOINT,
-        USB_DESCRIPTOR_TYPE_ENDPOINT,
-        USB_MTP_INTR_IN_ENDPOINT  | (USB_IN << 7U),
-        USB_ENDPOINT_INTERRUPT,
-        USB_SHORT_GET_LOW(HS_MTP_INTR_IN_PACKET_SIZE),
-        USB_SHORT_GET_HIGH(HS_MTP_INTR_IN_PACKET_SIZE),
-        FS_MTP_INTR_IN_INTERVAL,
+    USB_DESCRIPTOR_LENGTH_ENDPOINT,
+    USB_DESCRIPTOR_TYPE_ENDPOINT,
+    USB_MTP_INTR_IN_ENDPOINT  | (USB_IN << 7U),
+    USB_ENDPOINT_INTERRUPT,
+    USB_SHORT_GET_LOW(HS_MTP_INTR_IN_PACKET_SIZE),
+    USB_SHORT_GET_HIGH(HS_MTP_INTR_IN_PACKET_SIZE),
+    FS_MTP_INTR_IN_INTERVAL,
 
     /* Interface Association Descriptor (IAD) */
     /* Size of this descriptor in bytes */
@@ -276,16 +315,18 @@ uint8_t g_UsbDeviceConfigurationDescriptor[] = {
     USB_DESCRIPTOR_LENGTH_CDC_CALL_MANAG, /* Size of this descriptor in bytes */
     USB_DESCRIPTOR_TYPE_CDC_CS_INTERFACE, /* CS_INTERFACE Descriptor Type */
     USB_CDC_CALL_MANAGEMENT_FUNC_DESC,
-    0x01, /*Bit 0: Whether device handle call management itself 1, Bit 1: Whether device can send/receive call
-             management information over a Data Class Interface 0 */
+    0x01, /* Bit 0: Whether device handle call management itself 1,
+             Bit 1: Whether device can send/receive call
+                management information over a Data Class Interface 0 */
     0x01, /* Indicates multiplexed commands are handled via data interface */
 
     USB_DESCRIPTOR_LENGTH_CDC_ABSTRACT,
     USB_DESCRIPTOR_TYPE_CDC_CS_INTERFACE,
     USB_CDC_ABSTRACT_CONTROL_FUNC_DESC,
     0x06, /* Bit 0: Whether device supports the request combination of Set_Comm_Feature, Clear_Comm_Feature, and
-             Get_Comm_Feature 0, Bit 1: Whether device supports the request combination of Set_Line_Coding,
-             Set_Control_Line_State, Get_Line_Coding, and the notification Serial_State 1, Bit ...  */
+                Get_Comm_Feature 0,
+             Bit 1: Whether device supports the request combination of Set_Line_Coding,
+                Set_Control_Line_State, Get_Line_Coding, and the notification Serial_State 1, Bit ...  */
 
     /* Union Communication Descriptor */
     USB_DESCRIPTOR_LENGTH_CDC_UNION_FUNC,
@@ -313,23 +354,24 @@ uint8_t g_UsbDeviceConfigurationDescriptor[] = {
     USB_CDC_VCOM_DIC_SUBCLASS,
     USB_CDC_VCOM_DIC_PROTOCOL,
     USB_STRING_CDC_ACM_DIC,
-    /* Endpoint Descriptors */
-        USB_DESCRIPTOR_LENGTH_ENDPOINT,
-        USB_DESCRIPTOR_TYPE_ENDPOINT,
-        USB_CDC_VCOM_DIC_BULK_IN_ENDPOINT | (USB_IN << 7U),
-        USB_ENDPOINT_BULK,
-        USB_SHORT_GET_LOW(FS_CDC_VCOM_BULK_IN_PACKET_SIZE),
-        USB_SHORT_GET_HIGH(FS_CDC_VCOM_BULK_IN_PACKET_SIZE),
-        0x00, /* The polling interval value is every 0 Frames */
 
-        /*Bulk OUT Endpoint descriptor */
-        USB_DESCRIPTOR_LENGTH_ENDPOINT,
-        USB_DESCRIPTOR_TYPE_ENDPOINT,
-        USB_CDC_VCOM_DIC_BULK_OUT_ENDPOINT | (USB_OUT << 7U),
-        USB_ENDPOINT_BULK,
-        USB_SHORT_GET_LOW(FS_CDC_VCOM_BULK_OUT_PACKET_SIZE),
-        USB_SHORT_GET_HIGH(FS_CDC_VCOM_BULK_OUT_PACKET_SIZE),
-        0x00, /* The polling interval value is every 0 Frames */
+    /* Endpoint Descriptors */
+    USB_DESCRIPTOR_LENGTH_ENDPOINT,
+    USB_DESCRIPTOR_TYPE_ENDPOINT,
+    USB_CDC_VCOM_DIC_BULK_IN_ENDPOINT | (USB_IN << 7U),
+    USB_ENDPOINT_BULK,
+    USB_SHORT_GET_LOW(FS_CDC_VCOM_BULK_IN_PACKET_SIZE),
+    USB_SHORT_GET_HIGH(FS_CDC_VCOM_BULK_IN_PACKET_SIZE),
+    0x00, /* The polling interval value is every 0 Frames */
+
+    /*Bulk OUT Endpoint descriptor */
+    USB_DESCRIPTOR_LENGTH_ENDPOINT,
+    USB_DESCRIPTOR_TYPE_ENDPOINT,
+    USB_CDC_VCOM_DIC_BULK_OUT_ENDPOINT | (USB_OUT << 7U),
+    USB_ENDPOINT_BULK,
+    USB_SHORT_GET_LOW(FS_CDC_VCOM_BULK_OUT_PACKET_SIZE),
+    USB_SHORT_GET_HIGH(FS_CDC_VCOM_BULK_OUT_PACKET_SIZE),
+    0x00, /* The polling interval value is every 0 Frames */
 };
 
 #if (defined(USB_DEVICE_CONFIG_CV_TEST) && (USB_DEVICE_CONFIG_CV_TEST > 0U))

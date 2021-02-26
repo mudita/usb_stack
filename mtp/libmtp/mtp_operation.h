@@ -14,7 +14,7 @@
 
 #define MTP_PATH_MAX_LEN (256U * 2U) /* The maximum length of path */
 
-#define MTP_STORAGE_COUNT (1U) /* The number of storage */
+#define MTP_STORAGE_COUNT (2U) /* The number of storage */
 
 #define MTP_DEVICE_FRIENDLY_NAME_LEN (8U * 2U) /* The length of device friendly name */
 

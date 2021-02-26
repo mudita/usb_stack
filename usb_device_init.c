@@ -118,6 +118,7 @@ usb_device_composite_struct_t* USB_DeviceApplicationInit(userCbFunc callback, vo
 {
     if (USB_DeviceClockInit() != kStatus_USB_Success) {
         LOG_ERROR("[Composite] USB Device Clock init failed");
+        return NULL;
     }
 
     g_composite.speed = USB_SPEED_FULL;
@@ -142,11 +143,15 @@ usb_device_composite_struct_t* USB_DeviceApplicationInit(userCbFunc callback, vo
     else
     {
         /* TODO: pass event handling function here */
-        if (VirtualComInit(&g_cdcVcom, g_CompositeClassConfig[1].classHandle, callback, userArg) != kStatus_USB_Success)
+        if (VirtualComInit(&g_cdcVcom, g_CompositeClassConfig[1].classHandle, callback, userArg) != kStatus_USB_Success) {
             LOG_ERROR("[Composite] VirtualCom initialization failed");
+            return NULL;
+        }
 
-        if (USB_DeviceMtpApplicationInit(g_CompositeClassConfig[0].classHandle) != kStatus_USB_Success)
+        if (USB_DeviceMtpApplicationInit(g_CompositeClassConfig[0].classHandle) != kStatus_USB_Success) {
             LOG_ERROR("[Composite] MTP initialization failed");
+            return NULL;
+        }
     }
 
     USB_DeviceSetIsr(true);
@@ -155,8 +160,19 @@ usb_device_composite_struct_t* USB_DeviceApplicationInit(userCbFunc callback, vo
         LOG_ERROR("[Composite] USB Device run failed");
     }
 
-
-
+#if USB_DEVICE_CONFIG_USE_TASK
+    if (xTaskCreate(USB_DeviceTask,                  /* pointer to the task */
+                    (char const *)"usb device task", /* task name for kernel awareness debugging */
+                    5000L / sizeof(portSTACK_TYPE),  /* task stack size */
+                    g_composite.deviceHandle,              /* optional task startup argument */
+                    5,                               /* initial priority */
+                    &g_mtp.device_task_handle        /* optional task handle to create */
+                    ) != pdPASS)
+    {
+        LOG_ERROR("usb device task create failed!\r\n");
+        return NULL;
+    }
+#endif
     LOG_DEBUG("[Composite] USB initialized");
     return &g_composite;
 }

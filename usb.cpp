@@ -64,6 +64,9 @@ namespace bsp
 
     int usbInit(xQueueHandle queueHandle, xQueueHandle irqQueueHandle, USBDeviceListener *deviceListener)
     {
+        USBReceiveQueue                = queueHandle;
+        USBIrqQueue                    = irqQueueHandle;
+
         usbDeviceComposite = USB_DeviceApplicationInit(usbDeviceStateCB, NULL);
 
         BaseType_t xReturned = xTaskCreate(reinterpret_cast<TaskFunction_t>(&bsp::usbDeviceTask),
@@ -78,9 +81,6 @@ namespace bsp
             LOG_DEBUG("init can't create device task");
             return -1;
         }
-
-        USBReceiveQueue                = queueHandle;
-        USBIrqQueue                    = irqQueueHandle;
 
         return (usbDeviceComposite == NULL) ? -1 : 0;
     }

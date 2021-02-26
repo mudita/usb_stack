@@ -458,60 +458,52 @@ usb_status_t USB_DeviceMtpMakeDir(const uint16_t *fileName)
 
 usb_status_t USB_DeviceMtpUnlink(const uint16_t *fileName)
 {
-    // if (f_unlink((const TCHAR *)fileName) != FR_OK)
-    // {
-    //     return kStatus_USB_Error;
-    // }
+    if (remove((const char *)fileName) != 0)
+    {
+        return kStatus_USB_Error;
+    }
 
     return kStatus_USB_Success;
 }
 
 usb_status_t USB_DeviceMtpRename(const uint16_t *oldName, const uint16_t *newName)
 {
-    // if (f_rename((const TCHAR *)oldName, (const TCHAR *)newName) != FR_OK)
-    // {
-    //     return kStatus_USB_Error;
-    // }
+    if (rename((const char *)oldName, (const char *)newName) != 0)
+    {
+        return kStatus_USB_Error;
+    }
 
     return kStatus_USB_Success;
 }
 
 usb_status_t USB_DeviceMtpGetDiskTotalBytes(const uint16_t *path, uint64_t *totalBytes)
 {
-    // DWORD freeClust;
-    // DWORD totalSector;
-    // FATFS *fs;
-    // uint32_t sectorSize;
+    // struct statvfs stvfs {};
 
     // if (totalBytes == NULL)
     // {
     //     return kStatus_USB_InvalidParameter;
     // }
 
-    // (void)f_getfree((const TCHAR *)path, &freeClust, &fs);
-    // (void)disk_ioctl(path[0] - '0', GET_SECTOR_SIZE, &sectorSize);
-    // totalSector = (fs->n_fatent - 2) * fs->csize;
-    // *totalBytes = (uint64_t)totalSector * sectorSize;
+    // statvfs( purefs::dir::getRootDiskPath().c_str(), &stvfs);
+
+    // *totalBytes = (uint64_t)stvfs.f_frsize * stvfs.f_blocks;
 
     return kStatus_USB_Success;
 }
 
 usb_status_t USB_DeviceMtpGetDiskFreeBytes(const uint16_t *path, uint64_t *freeBytes)
 {
-    // DWORD freeClust;
-    // DWORD freeSector;
-    // FATFS *fs;
-    // uint32_t sectorSize;
+    // struct statvfs stvfs {};
 
     // if (freeBytes == NULL)
     // {
     //     return kStatus_USB_InvalidParameter;
     // }
 
-    // (void)f_getfree((const TCHAR *)path, &freeClust, &fs);
-    // (void)disk_ioctl(path[0] - '0', GET_SECTOR_SIZE, &sectorSize);
-    // freeSector = freeClust * fs->csize;
-    // *freeBytes = (uint64_t)freeSector * sectorSize;
+    // statvfs( purefs::dir::getRootDiskPath().c_str(), &stvfs);
+
+    // *freeBytes = uint64_t(stvfs.f_bsize) * stvfs.f_bavail;
 
     return kStatus_USB_Success;
 }
