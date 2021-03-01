@@ -376,8 +376,8 @@ usb_status_t USB_DeviceMtpCallback(class_handle_t handle, uint32_t event, void *
             deviceInfo.captureFormatLength    = 0;
             deviceInfo.playbackFormat         = &g_ObjFormatSupported[0];
             deviceInfo.playbackFormatLength   = sizeof(g_ObjFormatSupported);
-            deviceInfo.manufacturer           = "NXP";
-            deviceInfo.model                  = "NXP";
+            deviceInfo.manufacturer           = "Mudita";
+            deviceInfo.model                  = "Pure";
             deviceInfo.deviceVersion          = "1.0";
             deviceInfo.serialNumber           = "0123456789ABCDEF";
 
@@ -678,14 +678,14 @@ usb_status_t USB_DeviceMtpApplicationInit(void* arg)
     }
 
     if (xTaskCreate(USB_DeviceDiskOperationTask,    /* pointer to the task */
-                    (char const *)"usb disk task",  /* task name for kernel awareness debugging */
+                    (char const *)"usb MTP task",  /* task name for kernel awareness debugging */
                     5000L / sizeof(portSTACK_TYPE), /* task stack size */
                     NULL,                           /* optional task startup argument */
                     4,                              /* initial priority */
                     &g_mtp.device_disk_task_handle  /* optional task handle to create */
                     ) != pdPASS)
     {
-        usb_echo("usb device disk task create failed!\r\n");
+        usb_echo("usb device MTP task create failed!\r\n");
         return kStatus_USB_Error;
     }
 

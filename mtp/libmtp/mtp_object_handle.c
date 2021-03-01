@@ -21,12 +21,11 @@
 /*******************************************************************************
  * Variables
  ******************************************************************************/
-static FILE* s_File;
 static SemaphoreHandle_t s_ObjHandleMutex = NULL;
 
 /* 2-byte unicode, the file created when session is opened is used to save object handle lists. */
 USB_RAM_ADDRESS_ALIGNMENT(2U)
-const char g_ObjHandlePath[] = "/sys/user/mtp_obj.txt";
+static usb_mtp_obj_handle_store_t usb_mtp_obj_handle_store;
 
 /*******************************************************************************
  * Code
@@ -46,11 +45,13 @@ usb_status_t USB_DeviceMtpObjHandleInit(void)
         return kStatus_USB_Error;
     }
 
-    (void)fclose(s_File);
+    usb_mtp_obj_handle_store.maxSize = MTP_OBJ_HANDLE_STORE_INITIAL_SZ;
 
-    s_File = fopen(&g_ObjHandlePath[0], "w+");
+    free(usb_mtp_obj_handle_store.objHandles);
 
-    if (!s_File)
+    usb_mtp_obj_handle_store.objHandles = calloc(MTP_OBJ_HANDLE_STORE_INITIAL_SZ, sizeof(usb_mtp_obj_handle_t));
+
+    if (!usb_mtp_obj_handle_store.objHandles)
     {
         return kStatus_USB_Error;
     }
@@ -62,7 +63,9 @@ usb_status_t USB_DeviceMtpObjHandleDeinit(void)
 {
     (void)xSemaphoreTakeRecursive(s_ObjHandleMutex, portMAX_DELAY);
 
-    (void)fclose(s_File);
+    free(usb_mtp_obj_handle_store.objHandles);
+
+    usb_mtp_obj_handle_store.maxSize = MTP_OBJ_HANDLE_STORE_INITIAL_SZ;
 
     (void)xSemaphoreGiveRecursive(s_ObjHandleMutex);
 
@@ -71,48 +74,42 @@ usb_status_t USB_DeviceMtpObjHandleDeinit(void)
 
 usb_status_t USB_DeviceMtpObjHandleRead(uint32_t objHandle, usb_mtp_obj_handle_t *objHandleStruct)
 {
-    uint32_t result;
-    uint32_t size;
-
     (void)xSemaphoreTakeRecursive(s_ObjHandleMutex, portMAX_DELAY);
 
-    result = fseek(s_File, (objHandle - 1U) * sizeof(usb_mtp_obj_handle_t), SEEK_SET);
-
-    if (!result)
+    if (objHandle > usb_mtp_obj_handle_store.maxSize)
     {
-        size = fread(objHandleStruct, sizeof(usb_mtp_obj_handle_t), 1, s_File);
-    }
-
-    (void)xSemaphoreGiveRecursive(s_ObjHandleMutex);
-
-    if ((result) || (size < sizeof(usb_mtp_obj_handle_t)))
-    {
+        (void)xSemaphoreGiveRecursive(s_ObjHandleMutex);
         return kStatus_USB_Error;
     }
+
+    memcpy(objHandleStruct, &usb_mtp_obj_handle_store.objHandles[(objHandle - 1U)], sizeof(usb_mtp_obj_handle_t));
+
+    (void)xSemaphoreGiveRecursive(s_ObjHandleMutex);
 
     return kStatus_USB_Success;
 }
 
 usb_status_t USB_DeviceMtpObjHandleWrite(uint32_t objHandle, usb_mtp_obj_handle_t *objHandleStruct)
 {
-    uint32_t result;
-    uint32_t size;
-
     (void)xSemaphoreTakeRecursive(s_ObjHandleMutex, portMAX_DELAY);
 
-    result = fseek(s_File, (objHandle - 1U) * sizeof(usb_mtp_obj_handle_t), SEEK_SET);
+    if (objHandle > usb_mtp_obj_handle_store.maxSize) {
+        uint32_t tempMaxSize = usb_mtp_obj_handle_store.maxSize * 2;
 
-    if (!result)
-    {
-        size = fwrite(objHandleStruct, sizeof(usb_mtp_obj_handle_t), 1, s_File);
+        void* tempStore = realloc(usb_mtp_obj_handle_store.objHandles, tempMaxSize * sizeof(usb_mtp_obj_handle_t));
+
+        if (!tempStore) {
+            (void)xSemaphoreGiveRecursive(s_ObjHandleMutex);
+            return kStatus_USB_Error;
+        }
+
+        usb_mtp_obj_handle_store.maxSize = tempMaxSize;
+        usb_mtp_obj_handle_store.objHandles = tempStore;
     }
+
+    memcpy(&usb_mtp_obj_handle_store.objHandles[(objHandle - 1U)], objHandleStruct, sizeof(usb_mtp_obj_handle_t));
 
     (void)xSemaphoreGiveRecursive(s_ObjHandleMutex);
-
-    if ((result) || (size < sizeof(usb_mtp_obj_handle_t)))
-    {
-        return kStatus_USB_Error;
-    }
 
     return kStatus_USB_Success;
 }

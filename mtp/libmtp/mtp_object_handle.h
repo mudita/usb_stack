@@ -25,6 +25,14 @@ typedef struct _usb_mtp_obj_handle
     uint8_t flag;
 } usb_mtp_obj_handle_t;
 
+#define MTP_OBJ_HANDLE_STORE_INITIAL_SZ (16)
+
+typedef struct _usb_mtp_obj_handle_store
+{
+    uint32_t maxSize;
+    usb_mtp_obj_handle_t *objHandles;
+} usb_mtp_obj_handle_store_t;
+
 usb_status_t USB_DeviceMtpObjHandleInit(void);
 usb_status_t USB_DeviceMtpObjHandleDeinit(void);
 usb_status_t USB_DeviceMtpObjHandleRead(uint32_t objHandle, usb_mtp_obj_handle_t *objHandleStruct);
