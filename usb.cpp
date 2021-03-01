@@ -179,22 +179,22 @@ namespace bsp
 
     void usbDeviceStateCB(void *, vcomEvent event)
     {
-        USBDeviceStatus notification;
-        switch (event) {
-        case VCOM_CONFIGURED:
-            notification = USBDeviceStatus::Configured;
-            xQueueSend(USBIrqQueue, &notification, 0);
-            break;
-        case VCOM_ATTACHED:
-            notification = USBDeviceStatus::Connected;
-            xQueueSend(USBIrqQueue, &notification, 0);
-            break;
-        case VCOM_DETACHED:
-            notification = USBDeviceStatus::Disconnected;
-            xQueueSend(USBIrqQueue, &notification, 0);
-            break;
-        default:
-            break;
-        }
+        // USBDeviceStatus notification;
+        // switch (event) {
+        // case VCOM_CONFIGURED:
+        //     notification = USBDeviceStatus::Configured;
+        //     xQueueSend(USBIrqQueue, &notification, 0);
+        //     break;
+        // case VCOM_ATTACHED:
+        //     notification = USBDeviceStatus::Connected;
+        //     xQueueSend(USBIrqQueue, &notification, 0);
+        //     break;
+        // case VCOM_DETACHED:
+        //     notification = USBDeviceStatus::Disconnected;
+        //     xQueueSend(USBIrqQueue, &notification, 0);
+        //     break;
+        // default:
+        //     break;
+        // }
     }
 } // namespace bsp
