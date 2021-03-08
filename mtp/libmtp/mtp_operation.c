@@ -1143,7 +1143,7 @@ void USB_DeviceCmdGetObjHandles(void *param)
     uint32_t objHandle     = dataInfo->param[2];
     usb_status_t result;
     usb_device_mtp_dir_handle_t dir;
-    usb_device_mtp_file_info_t fno;
+    usb_device_mtp_file_info_t fInfo;
     usb_mtp_obj_handle_t objHandleStruct;
     uint32_t objHandleCount;
     uint32_t j;
@@ -1256,7 +1256,7 @@ void USB_DeviceCmdGetObjHandles(void *param)
                 result = USB_DeviceMtpOpenDir(&dir, (const uint16_t *)&g_mtp.path[0]);
                 for (;;)
                 {
-                    result = USB_DeviceMtpReadDir(dir, &fno);
+                    result = USB_DeviceMtpReadDir(dir, &fInfo);
                     if (result != kStatus_USB_Success)
                     {
                         break; /* Break on error or end of dir */
@@ -1269,16 +1269,16 @@ void USB_DeviceCmdGetObjHandles(void *param)
 
                         objHandleStruct.idUnion.parentID = objHandle;
                         objHandleStruct.storageID        = storageID;
-                        objHandleStruct.size             = fno.size;
-                        objHandleStruct.dateUnion.date   = fno.dateUnion.date;
-                        objHandleStruct.timeUnion.time   = fno.timeUnion.time;
+                        objHandleStruct.size             = fInfo.size;
+                        objHandleStruct.dateUnion.date   = fInfo.dateUnion.date;
+                        objHandleStruct.timeUnion.time   = fInfo.timeUnion.time;
                         objHandleStruct.flag             = 0U;
-                        if ((fno.attrib & USB_DEVICE_MTP_DIR) != 0U)
+                        if ((fInfo.attrib & USB_DEVICE_MTP_DIR) != 0U)
                         {
                             objHandleStruct.flag |= MTP_OBJECT_DIR;
                         }
 
-                        (void)USB_DeviceMemCopyUnicodeString(&objHandleStruct.name[0], (const uint16_t *)&fno.name[0],
+                        (void)USB_DeviceMemCopyUnicodeString(&objHandleStruct.name[0], (const uint16_t *)&fInfo.name[0],
                                                              0U);
 
                         result = USB_DeviceMtpObjHandleWrite(objHandleStruct.handleID, &objHandleStruct);
@@ -1368,7 +1368,7 @@ void USB_DeviceCmdGetObjHandles(void *param)
                     result = USB_DeviceMtpOpenDir(&dir, (const uint16_t *)&g_mtp.path[0]);
                     for (;;)
                     {
-                        result = USB_DeviceMtpReadDir(dir, &fno);
+                        result = USB_DeviceMtpReadDir(dir, &fInfo);
                         if (result != kStatus_USB_Success)
                         {
                             break; /* Break on error or end of dir */
@@ -1382,17 +1382,17 @@ void USB_DeviceCmdGetObjHandles(void *param)
 
                                 objHandleStruct.idUnion.parentID = objHandle;
                                 objHandleStruct.storageID        = storageID;
-                                objHandleStruct.size             = fno.size;
-                                objHandleStruct.dateUnion.date   = fno.dateUnion.date;
-                                objHandleStruct.timeUnion.time   = fno.timeUnion.time;
+                                objHandleStruct.size             = fInfo.size;
+                                objHandleStruct.dateUnion.date   = fInfo.dateUnion.date;
+                                objHandleStruct.timeUnion.time   = fInfo.timeUnion.time;
                                 objHandleStruct.flag             = 0U;
-                                if ((fno.attrib & USB_DEVICE_MTP_DIR) != 0U)
+                                if ((fInfo.attrib & USB_DEVICE_MTP_DIR) != 0U)
                                 {
                                     objHandleStruct.flag |= MTP_OBJECT_DIR;
                                 }
 
                                 (void)USB_DeviceMemCopyUnicodeString(&objHandleStruct.name[0],
-                                                                     (const uint16_t *)&fno.name[0], 0U);
+                                                                     (const uint16_t *)&fInfo.name[0], 0U);
 
                                 result = USB_DeviceMtpObjHandleWrite(objHandleStruct.handleID, &objHandleStruct);
 
@@ -2120,7 +2120,7 @@ void USB_DeviceCmdDeleteObj(void *param)
     usb_device_mtp_cmd_data_struct_t *dataInfo = (usb_device_mtp_cmd_data_struct_t *)param;
     uint32_t objHandle                         = dataInfo->param[0];
     usb_mtp_obj_handle_t objHandleStruct;
-    usb_status_t result;
+    usb_status_t result = kStatus_USB_Success;
     uint32_t i;
 
     if (dataInfo->curPhase == USB_DEVICE_MTP_PHASE_CANCELLATION)

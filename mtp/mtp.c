@@ -679,9 +679,9 @@ usb_status_t USB_DeviceMtpApplicationInit(void* arg)
 
     if (xTaskCreate(USB_DeviceDiskOperationTask,    /* pointer to the task */
                     (char const *)"usb MTP task",  /* task name for kernel awareness debugging */
-                    5000L / sizeof(portSTACK_TYPE), /* task stack size */
+                    6000L / sizeof(portSTACK_TYPE), /* task stack size */
                     NULL,                           /* optional task startup argument */
-                    4,                              /* initial priority */
+                    tskIDLE_PRIORITY,                              /* initial priority */
                     &g_mtp.device_disk_task_handle  /* optional task handle to create */
                     ) != pdPASS)
     {

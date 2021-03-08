@@ -163,9 +163,9 @@ usb_device_composite_struct_t* USB_DeviceApplicationInit(userCbFunc callback, vo
 #if USB_DEVICE_CONFIG_USE_TASK
     if (xTaskCreate(USB_DeviceTask,                  /* pointer to the task */
                     (char const *)"usb device task", /* task name for kernel awareness debugging */
-                    5000L / sizeof(portSTACK_TYPE),  /* task stack size */
+                    6000L / sizeof(portSTACK_TYPE),  /* task stack size */
                     g_composite.deviceHandle,              /* optional task startup argument */
-                    5,                               /* initial priority */
+                    tskIDLE_PRIORITY,                               /* initial priority */
                     &g_mtp.device_task_handle        /* optional task handle to create */
                     ) != pdPASS)
     {

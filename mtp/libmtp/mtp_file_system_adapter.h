@@ -33,6 +33,10 @@ typedef uint16_t usb_device_mtp_path_t;
 #define USB_DEVICE_MTP_READ_ONLY (0x01U)
 #define USB_DEVICE_MTP_DIR       (0x02U)
 
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 typedef union _usb_device_mtp_date_union
 {
     uint32_t date;
@@ -92,4 +96,7 @@ usb_status_t USB_DeviceMtpGetDiskTotalBytes(const uint16_t *path, uint64_t *tota
 usb_status_t USB_DeviceMtpGetDiskFreeBytes(const uint16_t *path, uint64_t *freeBytes);
 usb_status_t USB_DeviceMtpFSInit(const uint16_t *path);
 
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
 #endif /* __USB_MTP_FILE_SYSTEM_ADAPTER_H__ */

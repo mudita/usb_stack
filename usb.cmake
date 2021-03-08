@@ -9,7 +9,7 @@ set(USB_SRC
         "${CMAKE_CURRENT_SOURCE_DIR}/board/rt1051/bsp/usb/cdc/usb_device_cdc_acm.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/board/rt1051/bsp/usb/cdc/virtual_com.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/board/rt1051/bsp/usb/dcd/usb_phydcd.c"
-        "${CMAKE_CURRENT_SOURCE_DIR}/board/rt1051/bsp/usb/mtp/libmtp/mtp_file_system_adapter.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/board/rt1051/bsp/usb/mtp/libmtp/mtp_file_system_adapter.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/board/rt1051/bsp/usb/mtp/libmtp/mtp_object_handle.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/board/rt1051/bsp/usb/mtp/libmtp/mtp_operation.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/board/rt1051/bsp/usb/mtp/mtp.c"
