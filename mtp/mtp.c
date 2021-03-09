@@ -245,8 +245,8 @@ const char g_StorageRootPath[MTP_STORAGE_COUNT][MTP_PATH_MAX_LEN >> 1U] = {
 
 usb_device_mtp_storage_info_t g_StorageInfo[MTP_STORAGE_COUNT] = {
     {
-        .rootPath         = &g_StorageRootPath[1][0], /* 2-byte unicode */
-        .storageDesc      = "Music",             /* ascll code, will convert to unicode when host gets this field. */
+        .rootPath         = &g_StorageRootPath[0][0], /* 2-byte unicode */
+        .storageDesc      = "Music",               /* ascll code, will convert to unicode when host gets this field. */
         .volumeID         = NULL,                  /* ascll code, will convert to unicode when host gets this field. */
         .storageID        = 0x00010001U,           /* should ensure its uniqueness. */
         .storageType      = MTP_STORAGE_FIXED_RAM,
@@ -255,8 +255,8 @@ usb_device_mtp_storage_info_t g_StorageInfo[MTP_STORAGE_COUNT] = {
         .flag             = 0U,
     },
     {
-        .rootPath         = &g_StorageRootPath[2][0], /* 2-byte unicode */
-        .storageDesc      = "Backup",             /* ascll code, will convert to unicode when host gets this field. */
+        .rootPath         = &g_StorageRootPath[1][0], /* 2-byte unicode */
+        .storageDesc      = "Backup",              /* ascll code, will convert to unicode when host gets this field. */
         .volumeID         = NULL,                  /* ascll code, will convert to unicode when host gets this field. */
         .storageID        = 0x00010002U,           /* should ensure its uniqueness. */
         .storageType      = MTP_STORAGE_FIXED_ROM,
