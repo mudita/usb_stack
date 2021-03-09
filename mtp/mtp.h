@@ -8,6 +8,9 @@
 #ifndef __USB_MTP_H__
 #define __USB_MTP_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "mtp_operation.h"
 #include "mtp_file_system_adapter.h"
 
@@ -52,4 +55,8 @@ usb_status_t USB_DeviceMtpApplicationInit(void* arg);
 void MtpReset(usb_mtp_struct_t *mtpApp, uint8_t speed);
 void MtpDetached(usb_mtp_struct_t *mtpApp);
 void MtpDeinit(usb_mtp_struct_t *mtpApp);
+
+#ifdef __cplusplus
+}; //extern "C" {
+#endif
 #endif

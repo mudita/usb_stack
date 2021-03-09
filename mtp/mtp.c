@@ -697,19 +697,19 @@ void MtpReset(usb_mtp_struct_t *mtpApp, uint8_t speed)
 {
     // mtpApp->configured = false;
     // mtpApp->in_reset = true;
-    // if (speed == USB_SPEED_FULL)
-    // {
-    //     PRINTF("[MTP] Reset to Full-Speed 12Mbps");
-    //     mtpApp->usb_buffer_size = FS_MTP_BULK_OUT_PACKET_SIZE;
-    // } else {
-    //     PRINTF("[MTP] Reset to High-Speed 480Mbps");
-    //     mtpApp->usb_buffer_size = HS_MTP_BULK_OUT_PACKET_SIZE;
-    // }
+    if (speed == USB_SPEED_FULL)
+    {
+        usb_echo("[MTP] Reset to Full-Speed 12Mbps");
+        // mtpApp->usb_buffer_size = FS_MTP_BULK_OUT_PACKET_SIZE;
+    } else {
+        usb_echo("[MTP] Reset to High-Speed 480Mbps");
+        // mtpApp->usb_buffer_size = HS_MTP_BULK_OUT_PACKET_SIZE;
+    }
 }
 
 void MtpDetached(usb_mtp_struct_t *mtpApp)
 {
-    // PRINTF("[MTP] MTP detached");
+    usb_echo("[MTP] MTP detached");
     // mtpApp->configured = false;
     // mtpApp->in_reset = true;
 }
@@ -718,19 +718,11 @@ void MtpDeinit(usb_mtp_struct_t *mtpApp)
 {
     // mtpApp->in_reset = true;
     // mtpApp->is_terminated = true;
-    // /* wait max 2 sec to terminate mtp thread */
-    // if (xSemaphoreTake(mtpApp->join, 2000/portTICK_PERIOD_MS) == pdTRUE) {
-    //     mtp_responder_free(mtpApp->responder);
-    //     vStreamBufferDelete(mtpApp->outputBox);
-    //     vStreamBufferDelete(mtpApp->inputBox);
-    //     vSemaphoreDelete(mtpApp->join);
-    //     mtpApp->responder = NULL;
-    //     mtpApp->outputBox = NULL;
-    //     mtpApp->outputBox = NULL;
-    //     mtpApp->join = NULL;
-    //     PRINTF("[MTP] Deinitialized");
-    // } else {
-    //     PRINTF("[MTP] Mtp Deinit failed. Unable to join thread");
-    // }
+    /* wait max 2 sec to terminate mtp thread */
+//     if (xSemaphoreTake(mtpApp->join, 2000/portTICK_PERIOD_MS) == pdTRUE) {
+    usb_echo("[MTP] Deinitialized");
+//     } else {
+//         PRINTF("[MTP] Mtp Deinit failed. Unable to join thread");
+//     }
 }
 

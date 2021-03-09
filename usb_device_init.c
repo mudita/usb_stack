@@ -183,9 +183,12 @@ void USB_DeviceApplicationDeinit(usb_device_composite_struct_t *composite)
     if ((err = USB_DeviceStop(composite->deviceHandle)) != kStatus_USB_Success) {
         LOG_ERROR("[Composite] Device stop failed: 0x%x", err);
     }
+
     USB_DeviceSetIsr(false);
+
     MtpDeinit(&g_mtp);
     VirtualComDeinit(&g_cdcVcom);
+
     if ((err = USB_DeviceClassDeinit(CONTROLLER_ID)) != kStatus_USB_Success) {
         LOG_ERROR("[Composite] Device class deinit failed: 0x%x", err);
     }

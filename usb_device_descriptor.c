@@ -212,8 +212,8 @@ uint8_t g_UsbDeviceConfigurationDescriptor[] = {
     USB_DESCRIPTOR_LENGTH_CONFIGURE,
     USB_DESCRIPTOR_TYPE_CONFIGURE,
     /* Total length of data returned for this configuration. */
-    USB_SHORT_GET_LOW(USB_CONFIGURATION_LEN), /* MTP */
-    USB_SHORT_GET_HIGH(USB_CONFIGURATION_LEN), /* MTP */
+    USB_SHORT_GET_LOW(USB_CONFIGURATION_LEN),
+    USB_SHORT_GET_HIGH(USB_CONFIGURATION_LEN),
     USB_INTERFACE_COUNT,
     /* Value to use as an argument to the SetConfiguration() request to select this configuration */
     USB_COMPOSITE_CONFIGURE_INDEX,
@@ -225,11 +225,11 @@ uint8_t g_UsbDeviceConfigurationDescriptor[] = {
         (USB_DEVICE_CONFIG_SELF_POWER << USB_DESCRIPTOR_CONFIGURE_ATTRIBUTE_SELF_POWERED_SHIFT) |
         (USB_DEVICE_CONFIG_REMOTE_WAKEUP << USB_DESCRIPTOR_CONFIGURE_ATTRIBUTE_REMOTE_WAKEUP_SHIFT),
     /* Configuration characteristics
- D7: Reserved (set to one)
- D6: Self-powered
- D5: Remote Wakeup
- D4...0: Reserved (reset to zero)
-*/
+	    D7: Reserved (set to one)
+	    D6: Self-powered
+	    D5: Remote Wakeup
+	    D4...0: Reserved (reset to zero)
+	*/
     USB_DEVICE_MAX_POWER,            /* Maximum power consumption of the USB
                                       * device from the bus in this specific
                                       * configuration when the device is fully

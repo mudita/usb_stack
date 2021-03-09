@@ -9,6 +9,7 @@
 #include "usb_device.h"
 #include "usb_device_class.h"
 #include "usb_device_cdc_acm.h"
+#include "usb_device_mtp.h"
 #include "usb_device_ch9.h"
 #include "usb_device_descriptor.h"
 #include "composite.h"
@@ -163,7 +164,13 @@ usb_status_t USB_DeviceCallback(usb_device_handle handle, uint32_t event, void *
 
         case kUSB_DeviceEventDetach:
             VirtualComDetached(&g_cdcVcom);
-            MtpDetached(&g_mtp);
+#if (defined(USB_DEVICE_CONFIG_DETACH_ENABLE) && (USB_DEVICE_CONFIG_DETACH_ENABLE > 0U))
+            USB_DeviceMtpCancelCurrentTransaction(g_mtp.mtpHandle);
+            if (0U == g_mtp.mutexUsbToDiskTask)
+            {
+                USB_DeviceCmdCloseSession(NULL);
+            }
+#endif
 
             break;
         #if (defined(USB_DEVICE_CONFIG_CHARGER_DETECT) && (USB_DEVICE_CONFIG_CHARGER_DETECT > 0U)) && \

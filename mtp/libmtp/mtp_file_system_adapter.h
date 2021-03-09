@@ -19,8 +19,10 @@
 #endif
 #endif
 
-typedef void *usb_device_mtp_file_handle_t;
-typedef void *usb_device_mtp_dir_handle_t;
+#include "dirent.h"
+
+typedef FILE *usb_device_mtp_file_handle_t;
+typedef DIR *usb_device_mtp_dir_handle_t;
 typedef uint16_t usb_device_mtp_path_t;
 
 /*! @brief MTP file access mode */
@@ -84,7 +86,7 @@ usb_status_t USB_DeviceMtpClose(usb_device_mtp_file_handle_t file);
 usb_status_t USB_DeviceMtpLseek(usb_device_mtp_file_handle_t file, uint32_t offset);
 usb_status_t USB_DeviceMtpRead(usb_device_mtp_file_handle_t file, void *buffer, uint32_t size, uint32_t *actualsize);
 usb_status_t USB_DeviceMtpWrite(usb_device_mtp_file_handle_t file, void *buffer, uint32_t size, uint32_t *actualsize);
-usb_status_t USB_DeviceMtpFstat(const uint16_t *fileName, usb_device_mtp_file_info_t *fileInfo);
+usb_status_t USB_DeviceMtpFstat(const usb_device_mtp_dir_handle_t dir, const uint16_t *fileName, usb_device_mtp_file_info_t *fileInfo);
 usb_status_t USB_DeviceMtpUtime(const uint16_t *path, usb_device_mtp_file_time_stamp_t *timeStamp);
 usb_status_t USB_DeviceMtpOpenDir(usb_device_mtp_dir_handle_t *dir, const uint16_t *dirName);
 usb_status_t USB_DeviceMtpCloseDir(usb_device_mtp_dir_handle_t dir);

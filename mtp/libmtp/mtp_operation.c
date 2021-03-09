@@ -1951,7 +1951,7 @@ void USB_DeviceCmdSendObjInfo(void *param)
         else
         {
             /* Get date and time. */
-            USB_DeviceMtpFstat((const uint16_t *)&g_mtp.path[0], &fno);
+            USB_DeviceMtpFstat(NULL, (const uint16_t *)&g_mtp.path[0], &fno);
             *(uint32_t *)(&g_mtp.timeStamp)        = fno.dateUnion.date;
             *((uint32_t *)(&g_mtp.timeStamp) + 1U) = fno.timeUnion.time;
         }
@@ -2696,7 +2696,7 @@ void USB_DeviceCmdCopyObj(void *param)
     else
     {
         /* get date and time */
-        (void)USB_DeviceMtpFstat((const uint16_t *)&destPath[0], &fno);
+        (void)USB_DeviceMtpFstat(NULL, (const uint16_t *)&destPath[0], &fno);
 
         objHandleStruct.handleID = g_mtp.nextHandleID;
         g_mtp.nextHandleID++;

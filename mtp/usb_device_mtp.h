@@ -341,6 +341,19 @@ extern usb_status_t USB_DeviceMtpResponseSend(class_handle_t handle, usb_device_
  */
 extern usb_status_t USB_DeviceMtpCancelCurrentTransaction(class_handle_t handle);
 
+/*!
+ * @brief Cancel current transacion.
+ *
+ * The function is used to cancel current transaction in the bulk in, bulk out and interrupt in endpoints.
+ * The function calls USB_DeviceCancel internally. If there is a transaction ongoing, the function will call
+ * callback function to inform application that the transaction is cancelled.
+ *
+ * @param handle The MTP class handle got from usb_device_class_config_struct_t::classHandle.
+ *
+ * @return A USB error code or kStatus_USB_Success.
+ */
+usb_status_t USB_DeviceMtpCancelCurrentTransaction(class_handle_t handle);
+
 /*! @}*/
 
 #ifdef __cplusplus
