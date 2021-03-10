@@ -59,119 +59,99 @@ typedef struct
 /*******************************************************************************
  * Variables
  ******************************************************************************/
-static usb_device_mtp_file_instance_t s_FileInstance[USB_DEVICE_MTP_FILE_INSTANCE];
-static usb_device_mtp_dir_instance_t s_DirInstance[USB_DEVICE_MTP_DIR_INSTANCE];
+// static usb_device_mtp_file_instance_t s_FileInstance[USB_DEVICE_MTP_FILE_INSTANCE];
+// static usb_device_mtp_dir_instance_t s_DirInstance[USB_DEVICE_MTP_DIR_INSTANCE];
 
 /*******************************************************************************
  * Code
  ******************************************************************************/
 
-static usb_status_t USB_DeviceMtpAllocateFileHandle(FILE **file)
-{
-    uint32_t i;
+// static uint32_t USB_DeviceMtpAllocateFileHandle(void)
+// {
+//     uint32_t i;
 
-    for (i = 0; i < USB_DEVICE_MTP_FILE_INSTANCE; i++)
-    {
-        if (s_FileInstance[i].flags == 0U)
-        {
-            s_FileInstance[i].flags = 1U;
-            *file                   = s_FileInstance[i].file;
-            LOG_INFO("Allocated file handle: %lu", i);
-            return kStatus_USB_Success;
-        }
-    }
+//     for (i = 0; i < USB_DEVICE_MTP_FILE_INSTANCE; i++)
+//     {
+//         if (s_FileInstance[i].flags == 0U)
+//         {
+//             s_FileInstance[i].flags = 1U;
+//             LOG_INFO("Allocated file handle: %lu", i);
+//             return i;
+//         }
+//     }
+//     LOG_ERROR("Failed to alocate file handle");
+//     return (uint32_t)-1;
+// }
 
-    return kStatus_USB_Busy;
-}
+// static usb_status_t USB_DeviceMtpFreeFileHandle(uint32_t i)
+// {
+//     if (s_FileInstance[i].flags != 0U)
+//     {
+//         s_FileInstance[i].flags = 0U;
+//         s_FileInstance[i].file = NULL;
+//         LOG_INFO("Freed file handle: %lu", i);
+//         return kStatus_USB_Success;
+//     }
+//     LOG_ERROR("Failed to free file handle");
+//     return kStatus_USB_Busy;
+// }
 
-static usb_status_t USB_DeviceMtpFreeFileHandle(FILE *file)
-{
-    uint32_t i;
+// static uint32_t USB_DeviceMtpAllocateDirHandle(void)
+// {
+//     uint32_t i;
 
-    for (i = 0; i < USB_DEVICE_MTP_FILE_INSTANCE; i++)
-    {
-        if ((s_FileInstance[i].flags != 0U) && (s_FileInstance[i].file == file))
-        {
-            s_FileInstance[i].flags = 0U;
-            LOG_INFO("Freed file handle: %lu", i);
-            return kStatus_USB_Success;
-        }
-    }
-    LOG_ERROR("Failed to free file handle");
+//     for (i = 0; i < USB_DEVICE_MTP_DIR_INSTANCE; i++)
+//     {
+//         if (s_DirInstance[i].flags == 0U)
+//         {
+//             s_DirInstance[i].flags = 1U;
+//             LOG_INFO("Allocated dir handle: %lu", i);
+//             return i;
+//         }
+//     }
+//     LOG_ERROR("Failed to allocate dir handle");
+//     return (uint32_t)-1;
+// }
 
-    return kStatus_USB_Busy;
-}
+// static usb_status_t USB_DeviceMtpFreeDirHandle(uint32_t i)
+// {
+//     if (s_DirInstance[i].flags != 0U)
+//     {
+//         s_DirInstance[i].flags = 0U;
+//         s_DirInstance[i].dir = NULL;
+//         s_DirInstance[i].dirPath = NULL;
+//         LOG_INFO("Freed file handle: %lu", i);
+//         return kStatus_USB_Success;
+//     }
+//     LOG_ERROR("Failed to free dir handle");
 
-static usb_status_t USB_DeviceMtpAllocateDirHandle(DIR **dir)
-{
-    uint32_t i;
+//     return kStatus_USB_Busy;
+// }
 
-    for (i = 0; i < USB_DEVICE_MTP_DIR_INSTANCE; i++)
-    {
-        if (s_DirInstance[i].flags == 0U)
-        {
-            *dir                   = s_DirInstance[i].dir;
-            s_DirInstance[i].flags = 1U;
-            LOG_INFO("Allocated dir handle: %lu", i);
-            return kStatus_USB_Success;
-        }
-    }
+// static const uint16_t *USB_DeviceMtpGetDirPath(uint32_t i)
+// {
+//     if ((s_DirInstance[i].flags != 0U) && (s_DirInstance[i].dir))
+//     {
+//         LOG_INFO("Found dir handle to get path: %lu", i);
+//         return s_DirInstance[i].dirPath;
+//     }
+//     LOG_ERROR("Failed to find dir path");
 
-    return kStatus_USB_Busy;
-}
+//     return NULL;
+// }
 
-static usb_status_t USB_DeviceMtpFreeDirHandle(DIR *dir)
-{
-    uint32_t i;
+// static usb_status_t USB_DeviceMtpSetDirPath(uint32_t i, const uint16_t *fileName)
+// {
+//     if ((s_DirInstance[i].flags != 0U) && (s_DirInstance[i].dir))
+//     {
+//         LOG_INFO("Found dir handle to set path: %lu", i);
+//         s_DirInstance[i].dirPath = fileName;
+//         return kStatus_USB_Success;
+//     }
+//     LOG_ERROR("Failed to set dir path");
 
-    for (i = 0; i < USB_DEVICE_MTP_DIR_INSTANCE; i++)
-    {
-        if ((s_DirInstance[i].flags != 0U) && (s_DirInstance[i].dir == dir))
-        {
-            s_DirInstance[i].flags = 0U;
-            LOG_INFO("Freed file handle: %lu", i);
-            return kStatus_USB_Success;
-        }
-    }
-    LOG_ERROR("Failed to free dir handle");
-
-    return kStatus_USB_Busy;
-}
-
-static const uint16_t *USB_DeviceMtpGetDirPath(usb_device_mtp_dir_handle_t dir)
-{
-    uint32_t i;
-
-    for (i = 0; i < USB_DEVICE_MTP_DIR_INSTANCE; i++)
-    {
-        if ((s_DirInstance[i].flags != 0U) && (s_DirInstance[i].dir == dir))
-        {
-            LOG_INFO("Found dir handle to get path: %lu", i);
-            return s_DirInstance[i].dirPath;
-        }
-    }
-    LOG_ERROR("Failed to find dir path");
-
-    return NULL;
-}
-
-static usb_status_t USB_DeviceMtpSetDirPath(usb_device_mtp_dir_handle_t dir, const uint16_t *fileName)
-{
-    uint32_t i;
-
-    for (i = 0; i < USB_DEVICE_MTP_DIR_INSTANCE; i++)
-    {
-        if ((s_DirInstance[i].flags != 0U) && (s_DirInstance[i].dir == dir))
-        {
-            LOG_INFO("Found dir handle to set path: %lu", i);
-            s_DirInstance[i].dirPath = fileName;
-            return kStatus_USB_Success;
-        }
-    }
-    LOG_ERROR("Failed to set dir path");
-
-    return kStatus_USB_Busy;
-}
+//     return kStatus_USB_Busy;
+// }
 
 usb_status_t USB_DeviceMtpOpen(usb_device_mtp_file_handle_t *file, const uint16_t *fileName, uint32_t flags)
 {
@@ -179,14 +159,16 @@ usb_status_t USB_DeviceMtpOpen(usb_device_mtp_file_handle_t *file, const uint16_
     char mode[4] = {'r', 0, };
     uint32_t modeIdx = 0;
 
+    // uint32_t fileSlot = USB_DeviceMtpAllocateFileHandle();
+
     LOG_INFO("File name: %s", (const uint8_t *)fileName);
 
-    if (USB_DeviceMtpAllocateFileHandle(&fil) != kStatus_USB_Success)
-    {
-        return kStatus_USB_Busy;
-    }
+    // if (fileSlot == -1)
+    // {
+    //     return kStatus_USB_Busy;
+    // }
 
-    *file = (usb_device_mtp_file_handle_t)fil;
+    // *file = (usb_device_mtp_file_handle_t)fil;
 
     // if ((flags & USB_DEVICE_MTP_READ) != 0U)
     // {
@@ -208,13 +190,14 @@ usb_status_t USB_DeviceMtpOpen(usb_device_mtp_file_handle_t *file, const uint16_
     LOG_INFO("Attempt open file: %s, mode %s", (const uint8_t *)fileName, mode);
     fil = fopen((const char*)fileName, mode);
 
-
     if (!fil)
     {
-        USB_DeviceMtpFreeFileHandle(fil);
+        // USB_DeviceMtpFreeFileHandle(fileSlot);
         LOG_ERROR("Failed to open file: %s", (const uint8_t *)fileName);
         return kStatus_USB_Error;
     }
+
+    *file = (usb_device_mtp_file_handle_t)fil;
 
     return kStatus_USB_Success;
 }
@@ -232,11 +215,11 @@ usb_status_t USB_DeviceMtpClose(usb_device_mtp_file_handle_t file)
 
     if (!fclose(fil))
     {
-        USB_DeviceMtpFreeFileHandle(fil);
+        // USB_DeviceMtpFreeFileHandle(fil);
         return kStatus_USB_Error;
     }
 
-    USB_DeviceMtpFreeFileHandle(fil);
+    // USB_DeviceMtpFreeFileHandle(fil);
     return kStatus_USB_Success;
 }
 
@@ -310,68 +293,33 @@ usb_status_t USB_DeviceMtpWrite(usb_device_mtp_file_handle_t file, void *buffer,
 #define IS_READONLY(mode) ((mode & (S_IWUSR | S_IWGRP | S_IWOTH)) == 0)
 #define IS_DIRECTORY(mode) (mode & S_IFDIR)
 
-usb_status_t USB_DeviceMtpFstat(const usb_device_mtp_dir_handle_t dir, const uint16_t *fileName, usb_device_mtp_file_info_t *fileInfo)
+usb_status_t USB_DeviceMtpFstat(const usb_device_mtp_dir_handle_t dir, const uint16_t *filePath, usb_device_mtp_file_info_t *fileInfo)
 {
     struct stat fno;
     uint32_t count;
     uint8_t *src;
-    uint8_t *dest;
-    char fs_curr_path[256U];
+    uint16_t *dest;
+    const char *file = (const char *)filePath;
+
+    LOG_INFO("Attempt stat file: %s", file);
 
     if (fileInfo == NULL)
     {
         return kStatus_USB_InvalidParameter;
     }
 
-    LOG_INFO("Attempt stat file: %s", (const uint8_t *)fileName);
-
-    if (dir)
-    {
-        const uint16_t *dirPath = USB_DeviceMtpGetDirPath(dir);
-
-        if (dirPath == NULL)
-        {
-            return kStatus_USB_InvalidParameter;
-        }
-
-        // Update the current path
-        strcpy(fs_curr_path, (const char *)dirPath);
-        strcat(fs_curr_path, "/");
-    }
-
-    strcat(fs_curr_path, (const char*)fileName);
-
-    // FILE* fd = fopen((const char*)fileName, "r");
-
-    // if (fd == NULL)
-    // {
-    //     LOG_ERROR("Failed open file: %d", errno);
-    //     return kStatus_USB_Error;
-    // }
-
-    LOG_INFO("Attempt stat file: %s", fs_curr_path);
-
-
-    // if (fstat(fileno(fd), &fno) != 0)
-    if (stat(fs_curr_path, &fno) != 0)
+    if (stat(file, &fno) != 0)
     {
         LOG_ERROR("Failed fstat file: %d", errno);
         return kStatus_USB_Error;
     }
 
-    // fclose(fd);
-
-    // if ((fno.fattrib & AM_SYS) != 0U)
-    // {
-    //     return kStatus_USB_Error; /* do not expose system directories or files */
-    // }
-
     fileInfo->size = fno.st_size;
 
     struct tm *time = gmtime(&fno.st_mtime);
 
-    fileInfo->dateUnion.dateBitField.year   = time->tm_year; // ((fno.st_mtime & DATE_YEAR_MASK) >> DATE_YEAR_SHIFT) + 1980U; /* Year origin from 1980 */
-    fileInfo->dateUnion.dateBitField.month  = time->tm_mon;  // (fno.st_ & DATE_MONTH_MASK) >> DATE_MONTH_SHIFT;
+    fileInfo->dateUnion.dateBitField.year   = time->tm_year + 1900; // ((fno.st_mtime & DATE_YEAR_MASK) >> DATE_YEAR_SHIFT) + 1980U; /* Year origin from 1980 */
+    fileInfo->dateUnion.dateBitField.month  = time->tm_mon + 1;  // (fno.st_ & DATE_MONTH_MASK) >> DATE_MONTH_SHIFT;
     fileInfo->dateUnion.dateBitField.day    = time->tm_mday; // (fno.st_mtime & DATE_DAY_MASK) >> DATE_DAY_SHIFT;
     fileInfo->timeUnion.timeBitField.hour   = time->tm_hour; // (fno.ftime & TIME_HOUR_MASK) >> TIME_HOUR_SHIFT;
     fileInfo->timeUnion.timeBitField.minute = time->tm_min;  // (fno.ftime & TIME_MINUTE_MASK) >> TIME_MINUTE_SHIFT;
@@ -389,16 +337,17 @@ usb_status_t USB_DeviceMtpFstat(const usb_device_mtp_dir_handle_t dir, const uin
     }
 
     /* copy file name, unicode encoding. */
-    src   = (uint8_t *)fileName;
-    dest  = (uint8_t *)&fileInfo->name[0];
+    src   = (uint8_t *)strrchr(file, '/') + 1;
+    dest  = (uint16_t *)&fileInfo->name[0];
     count = 0;
+
     while ((src[count] != 0U) || (src[count + 1U] != 0U) || ((count % 2U) != 0U))
     {
         dest[count] = src[count];
         count++;
     }
-    dest[count]      = 0U;
-    dest[count + 1U] = 0U; /* terminate with 0x00, 0x00 */
+
+    dest[count]     = 0U; /* terminate with 0x00, 0x00 */
 
     return kStatus_USB_Success;
 }
@@ -419,23 +368,14 @@ usb_status_t USB_DeviceMtpUtime(const uint16_t *fileName, usb_device_mtp_file_ti
     return kStatus_USB_Success;
 }
 
-static int is_dot(const char *name) {
-    size_t strLen = strlen(name);
-
-    bool rv = ((strLen == 1) && (name[0] == '.')) ||
-        ((strLen == 2) && ( (name[0] == '.') && (name[1] == '.')));
-
-    return rv;
-}
-
 usb_status_t USB_DeviceMtpOpenDir(usb_device_mtp_dir_handle_t *dir, const uint16_t *dirName)
 {
     DIR *dir1;
 
-    if (USB_DeviceMtpAllocateDirHandle(&dir1) != kStatus_USB_Success)
-    {
-        return kStatus_USB_Busy;
-    }
+    // if (USB_DeviceMtpAllocateDirHandle(&dir1) != kStatus_USB_Success)
+    // {
+    //     return kStatus_USB_Busy;
+    // }
 
     LOG_INFO("Attempt open dir: %s", (const uint8_t *)dirName);
 
@@ -444,13 +384,13 @@ usb_status_t USB_DeviceMtpOpenDir(usb_device_mtp_dir_handle_t *dir, const uint16
     if (!dir1)
     {
         LOG_ERROR("Failed opend dir: %d", errno);
-        USB_DeviceMtpFreeDirHandle(dir1);
+        // USB_DeviceMtpFreeDirHandle(dir1);
         return kStatus_USB_Error;
     }
 
     *dir = (usb_device_mtp_dir_handle_t)dir1;
 
-    USB_DeviceMtpSetDirPath(*dir, dirName);
+    // USB_DeviceMtpSetDirPath(*dir, dirName);
 
     return kStatus_USB_Success;
 }
@@ -466,23 +406,24 @@ usb_status_t USB_DeviceMtpCloseDir(usb_device_mtp_dir_handle_t dir)
 
     dir1 = (DIR *)dir;
 
-    USB_DeviceMtpSetDirPath(dir, NULL);
+    // USB_DeviceMtpSetDirPath(dir, NULL);
 
     if (closedir(dir1) != 0)
     {
-        USB_DeviceMtpFreeDirHandle(dir1);
+        // USB_DeviceMtpFreeDirHandle(dir1);
         return kStatus_USB_Error;
     }
 
-    USB_DeviceMtpFreeDirHandle(dir1);
+    // USB_DeviceMtpFreeDirHandle(dir1);
 
     return kStatus_USB_Success;
 }
 
-usb_status_t USB_DeviceMtpReadDir(usb_device_mtp_dir_handle_t dir, usb_device_mtp_file_info_t *fileInfo)
+usb_status_t USB_DeviceMtpReadDir(usb_device_mtp_dir_handle_t dir, const uint16_t *dirName, usb_device_mtp_file_info_t *fileInfo)
 {
     DIR *dir1;
     struct dirent *de;
+    char file_path[PATH_MAX];
 
     if (dir == NULL)
     {
@@ -501,6 +442,7 @@ usb_status_t USB_DeviceMtpReadDir(usb_device_mtp_dir_handle_t dir, usb_device_mt
         LOG_INFO("Attempt read dir");
 
         de = readdir(dir1);
+
         if (de == NULL)
         {
             LOG_ERROR("Failed read dir: %d", errno);
@@ -512,13 +454,19 @@ usb_status_t USB_DeviceMtpReadDir(usb_device_mtp_dir_handle_t dir, usb_device_mt
             return kStatus_USB_InvalidRequest; /* return on end of dir */
         }
 
-        if (!is_dot(de->d_name))
+        // Skip . and .. directories
+        if ((strcmp(de->d_name, ".") != 0) && (strcmp(de->d_name, "..") != 0))
         {
-            break; /* do not expose system directories or files */
+            // Update the current path
+            strcpy(file_path, (const char *)dirName);
+            strcat(file_path, "/");
+            strcat(file_path, (const char*)de->d_name);
+
+            break;
         }
     }
 
-    return USB_DeviceMtpFstat(dir1, (const uint16_t *)de->d_name, fileInfo);
+    return USB_DeviceMtpFstat(dir1, (const uint16_t *)file_path, fileInfo);
 }
 
 usb_status_t USB_DeviceMtpMakeDir(const uint16_t *fileName)

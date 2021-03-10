@@ -90,7 +90,7 @@ usb_status_t USB_DeviceMtpFstat(const usb_device_mtp_dir_handle_t dir, const uin
 usb_status_t USB_DeviceMtpUtime(const uint16_t *path, usb_device_mtp_file_time_stamp_t *timeStamp);
 usb_status_t USB_DeviceMtpOpenDir(usb_device_mtp_dir_handle_t *dir, const uint16_t *dirName);
 usb_status_t USB_DeviceMtpCloseDir(usb_device_mtp_dir_handle_t dir);
-usb_status_t USB_DeviceMtpReadDir(usb_device_mtp_dir_handle_t dir, usb_device_mtp_file_info_t *fileInfo);
+usb_status_t USB_DeviceMtpReadDir(usb_device_mtp_dir_handle_t dir, const uint16_t *dirName, usb_device_mtp_file_info_t *fileInfo);
 usb_status_t USB_DeviceMtpMakeDir(const uint16_t *fileName);
 usb_status_t USB_DeviceMtpUnlink(const uint16_t *fileName);
 usb_status_t USB_DeviceMtpRename(const uint16_t *oldName, const uint16_t *newName);

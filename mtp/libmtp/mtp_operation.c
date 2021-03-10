@@ -488,7 +488,7 @@ usb_status_t USB_DeviceDeleteDir(uint8_t *path)
 
         for (;;)
         {
-            result = USB_DeviceMtpReadDir(dir, &fno);
+            result = USB_DeviceMtpReadDir(dir, (const uint16_t *)path, &fno);
             if (result != kStatus_USB_Success)
             {
                 break; /* Break on error or end of dir */
@@ -681,7 +681,7 @@ usb_status_t USB_DeviceCopyDir(uint8_t *destPath, uint8_t *srcPath)
 
         for (;;)
         {
-            result = USB_DeviceMtpReadDir(dirSrc, &fno);
+            result = USB_DeviceMtpReadDir(dirSrc, (const uint16_t *)srcPath, &fno);
             if ((result == kStatus_USB_InvalidRequest) || (result != kStatus_USB_Success))
             {
                 if (result == kStatus_USB_InvalidRequest)
@@ -1256,7 +1256,7 @@ void USB_DeviceCmdGetObjHandles(void *param)
                 result = USB_DeviceMtpOpenDir(&dir, (const uint16_t *)&g_mtp.path[0]);
                 for (;;)
                 {
-                    result = USB_DeviceMtpReadDir(dir, &fInfo);
+                    result = USB_DeviceMtpReadDir(dir, (const uint16_t *)&g_mtp.path[0], &fInfo);
                     if (result != kStatus_USB_Success)
                     {
                         break; /* Break on error or end of dir */
@@ -1368,7 +1368,7 @@ void USB_DeviceCmdGetObjHandles(void *param)
                     result = USB_DeviceMtpOpenDir(&dir, (const uint16_t *)&g_mtp.path[0]);
                     for (;;)
                     {
-                        result = USB_DeviceMtpReadDir(dir, &fInfo);
+                        result = USB_DeviceMtpReadDir(dir, (const uint16_t *)&g_mtp.path[0], &fInfo);
                         if (result != kStatus_USB_Success)
                         {
                             break; /* Break on error or end of dir */

@@ -100,7 +100,7 @@ const uint16_t g_EventSupported[] = {
 };
 
 const uint16_t g_DevPropSupported[] = {
-    MTP_DEVICE_PROPERTY_DEVICE_FRIENDLY_NAME,
+    // MTP_DEVICE_PROPERTY_DEVICE_FRIENDLY_NAME,
 };
 
 const uint16_t g_ObjFormatSupported[] = {
@@ -275,7 +275,7 @@ usb_device_mtp_storage_list_t g_StorageList = {
    If the device friendly name length set by host exceeds MTP_DEVICE_FRIENDLY_NAME_LEN, the name will be truncated. */
 USB_DMA_INIT_DATA_ALIGN(2U)
 uint8_t g_DevFriendlyName[MTP_DEVICE_FRIENDLY_NAME_LEN] = {
-    'N', 0x00U, 'X', 0x00U, 'P', 0x00U, ' ', 0x00U, 'M', 0x00U, 'T', 0x00U, 'P', 0x00U, 0x00U, 0x00U,
+    'P', 0x00U, 'u', 0x00U, 'r', 0x00U, 'e', 0x00U, 0x00U, 0x00U,
 };
 
 /* Data structure of mtp device, store the information, such as class handle */
@@ -370,8 +370,8 @@ usb_status_t USB_DeviceMtpCallback(class_handle_t handle, uint32_t event, void *
             deviceInfo.opSupportedLength      = sizeof(g_OpSupported);
             deviceInfo.eventSupported         = &g_EventSupported[0];
             deviceInfo.eventSupportedLength   = sizeof(g_EventSupported);
-            deviceInfo.devPropSupported       = &g_DevPropSupported[0];
-            deviceInfo.devPropSupportedLength = sizeof(g_DevPropSupported);
+            deviceInfo.devPropSupported       = NULL; // &g_DevPropSupported[0];
+            deviceInfo.devPropSupportedLength = 0; // sizeof(g_DevPropSupported);
             deviceInfo.captureFormat          = NULL;
             deviceInfo.captureFormatLength    = 0;
             deviceInfo.playbackFormat         = &g_ObjFormatSupported[0];
@@ -658,7 +658,7 @@ usb_status_t USB_DeviceMtpApplicationInit(void* arg)
     g_mtp.devPropDescList = &g_DevPropDescList;
     g_mtp.storageList     = &g_StorageList;
     g_mtp.objPropList     = &g_ObjPropList;
-    g_mtp.devFriendlyName = &g_DevFriendlyName[0];
+    // g_mtp.devFriendlyName = &g_DevFriendlyName[0];
     g_mtp.path            = (uint8_t *)&g_pathBuffer[0];
 
     g_mtp.mtpHandle          = (class_handle_t)arg;
