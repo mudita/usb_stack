@@ -238,12 +238,12 @@ usb_device_mtp_obj_prop_list_t g_ObjPropList = {
 
 /* 2-byte unicode */
 USB_DMA_INIT_DATA_ALIGN(2U)
-const char g_StorageRootPath[MTP_STORAGE_COUNT][MTP_PATH_MAX_LEN >> 1U] = {
+const uint8_t g_StorageRootPath[][MTP_PATH_MAX_LEN >> 1U] = {
     {"/sys/user/music"},
     {"/sys/user/backup"}
 };
 
-usb_device_mtp_storage_info_t g_StorageInfo[MTP_STORAGE_COUNT] = {
+usb_device_mtp_storage_info_t g_StorageInfo[] = {
     {
         .rootPath         = &g_StorageRootPath[0][0], /* 2-byte unicode */
         .storageDesc      = "Music",               /* ascll code, will convert to unicode when host gets this field. */
