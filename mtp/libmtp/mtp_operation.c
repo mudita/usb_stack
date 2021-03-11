@@ -1760,7 +1760,11 @@ void USB_DeviceCmdGetObj(void *param)
                 objHandleStruct.size;
 
         result = USB_DeviceMtpOpen(&g_mtp.file, (const uint16_t *)&g_mtp.path[0], USB_DEVICE_MTP_READ);
-        result = USB_DeviceMtpRead(g_mtp.file, readBuf + USB_DEVICE_MTP_MINIMUM_CONTAINER_LENGTH, offset, &sizeRead);
+
+        if (result == kStatus_USB_Success)
+        {
+            result = USB_DeviceMtpRead(g_mtp.file, readBuf + USB_DEVICE_MTP_MINIMUM_CONTAINER_LENGTH, offset, &sizeRead);
+        }
 
         if ((result != kStatus_USB_Success) || (sizeRead < offset))
         {
