@@ -19,7 +19,8 @@
 #endif
 #endif
 
-#include "dirent.h"
+#include <stdio.h>
+#include <dirent.h>
 
 typedef FILE *usb_device_mtp_file_handle_t;
 typedef DIR *usb_device_mtp_dir_handle_t;

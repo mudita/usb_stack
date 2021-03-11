@@ -66,7 +66,7 @@ typedef struct
  * Code
  ******************************************************************************/
 
-// static uint32_t USB_DeviceMtpAllocateFileHandle(void)
+// static usb_status_t USB_DeviceMtpAllocateFileHandle(FILE **file)
 // {
 //     uint32_t i;
 
@@ -75,28 +75,31 @@ typedef struct
 //         if (s_FileInstance[i].flags == 0U)
 //         {
 //             s_FileInstance[i].flags = 1U;
-//             LOG_INFO("Allocated file handle: %lu", i);
-//             return i;
+//             *file                   = &s_FileInstance[i].file;
+//             return kStatus_USB_Success;
 //         }
 //     }
-//     LOG_ERROR("Failed to alocate file handle");
-//     return (uint32_t)-1;
-// }
 
-// static usb_status_t USB_DeviceMtpFreeFileHandle(uint32_t i)
-// {
-//     if (s_FileInstance[i].flags != 0U)
-//     {
-//         s_FileInstance[i].flags = 0U;
-//         s_FileInstance[i].file = NULL;
-//         LOG_INFO("Freed file handle: %lu", i);
-//         return kStatus_USB_Success;
-//     }
-//     LOG_ERROR("Failed to free file handle");
 //     return kStatus_USB_Busy;
 // }
 
-// static uint32_t USB_DeviceMtpAllocateDirHandle(void)
+// static usb_status_t USB_DeviceMtpFreeFileHandle(FILE *file)
+// {
+//     uint32_t i;
+
+//     for (i = 0; i < USB_DEVICE_MTP_FILE_INSTANCE; i++)
+//     {
+//         if ((s_FileInstance[i].flags != 0U) && (&s_FileInstance[i].file == file))
+//         {
+//             s_FileInstance[i].flags = 0U;
+//             return kStatus_USB_Success;
+//         }
+//     }
+
+//     return kStatus_USB_Busy;
+// }
+
+// static usb_status_t USB_DeviceMtpAllocateDirHandle(DIR **dir)
 // {
 //     uint32_t i;
 
@@ -105,25 +108,26 @@ typedef struct
 //         if (s_DirInstance[i].flags == 0U)
 //         {
 //             s_DirInstance[i].flags = 1U;
-//             LOG_INFO("Allocated dir handle: %lu", i);
-//             return i;
+//             *dir                   = &s_DirInstance[i].dir;
+//             return kStatus_USB_Success;
 //         }
 //     }
-//     LOG_ERROR("Failed to allocate dir handle");
-//     return (uint32_t)-1;
+
+//     return kStatus_USB_Busy;
 // }
 
-// static usb_status_t USB_DeviceMtpFreeDirHandle(uint32_t i)
+// static usb_status_t USB_DeviceMtpFreeDirHandle(DIR *dir)
 // {
-//     if (s_DirInstance[i].flags != 0U)
+//     uint32_t i;
+
+//     for (i = 0; i < USB_DEVICE_MTP_DIR_INSTANCE; i++)
 //     {
-//         s_DirInstance[i].flags = 0U;
-//         s_DirInstance[i].dir = NULL;
-//         s_DirInstance[i].dirPath = NULL;
-//         LOG_INFO("Freed file handle: %lu", i);
-//         return kStatus_USB_Success;
+//         if ((s_DirInstance[i].flags != 0U) && (&s_DirInstance[i].dir == dir))
+//         {
+//             s_DirInstance[i].flags = 0U;
+//             return kStatus_USB_Success;
+//         }
 //     }
-//     LOG_ERROR("Failed to free dir handle");
 
 //     return kStatus_USB_Busy;
 // }
@@ -159,16 +163,12 @@ usb_status_t USB_DeviceMtpOpen(usb_device_mtp_file_handle_t *file, const uint16_
     char mode[4] = {'r', 0, };
     uint32_t modeIdx = 0;
 
-    // uint32_t fileSlot = USB_DeviceMtpAllocateFileHandle();
-
     LOG_INFO("File name: %s", (const uint8_t *)fileName);
 
-    // if (fileSlot == -1)
+    // if (USB_DeviceMtpAllocateFileHandle(&fil) != kStatus_USB_Success)
     // {
     //     return kStatus_USB_Busy;
     // }
-
-    // *file = (usb_device_mtp_file_handle_t)fil;
 
     // if ((flags & USB_DEVICE_MTP_READ) != 0U)
     // {
@@ -192,7 +192,7 @@ usb_status_t USB_DeviceMtpOpen(usb_device_mtp_file_handle_t *file, const uint16_
 
     if (!fil)
     {
-        // USB_DeviceMtpFreeFileHandle(fileSlot);
+        // USB_DeviceMtpFreeFileHandle(fil);
         LOG_ERROR("Failed to open file: %s", (const uint8_t *)fileName);
         return kStatus_USB_Error;
     }
@@ -377,7 +377,7 @@ usb_status_t USB_DeviceMtpOpenDir(usb_device_mtp_dir_handle_t *dir, const uint16
     //     return kStatus_USB_Busy;
     // }
 
-    LOG_INFO("Attempt open dir: %s", (const uint8_t *)dirName);
+    LOG_INFO("Attempt open dir: %s", (const char *)dirName);
 
     dir1 = opendir((const char *)dirName);
 
