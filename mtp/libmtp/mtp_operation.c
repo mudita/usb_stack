@@ -16,9 +16,8 @@
 #include "mtp_file_system_adapter.h"
 #include "mtp_object_handle.h"
 #include "mtp_operation.h"
-#include "mtp.h"
 
-// #include "fsl_debug_console.h"
+#include "mtp.h"
 
 /*******************************************************************************
  * Definitions
@@ -60,41 +59,41 @@ uint32_t USB_DeviceMemCopyArray(void *desBuf, const void *srcBuf, uint32_t size,
 }
 
 /* ascll to unicode */
-uint32_t USB_DeviceMemCopyString(void *desBuf, const char *srcBuf, uint32_t index)
-{
-    uint8_t *buffer = (uint8_t *)desBuf;
-    uint32_t i;
+// uint32_t USB_DeviceMemCopyString(void *desBuf, const char *srcBuf, uint32_t index)
+// {
+//     uint8_t *buffer = (uint8_t *)desBuf;
+//     uint32_t i;
 
-    if (srcBuf == NULL)
-    {
-        buffer += index;
-        buffer[0] = 0x00U;
+//     if (srcBuf == NULL)
+//     {
+//         buffer += index;
+//         buffer[0] = 0x00U;
 
-        return (index + 1U);
-    }
-    else
-    {
-        i = 0;
+//         return (index + 1U);
+//     }
+//     else
+//     {
+//         i = 0;
 
-        index += 1U;
-        buffer += index;
+//         index += 1U;
+//         buffer += index;
 
-        while (srcBuf[i] != 0x00U)
-        {
-            buffer[(i << 1U)]      = srcBuf[i];
-            buffer[(i << 1U) + 1U] = 0x00U;
-            i++;
-        }
+//         while (srcBuf[i] != 0x00U)
+//         {
+//             buffer[(i << 1U)]      = srcBuf[i];
+//             buffer[(i << 1U) + 1U] = 0x00U;
+//             i++;
+//         }
 
-        buffer[(i << 1U)]      = 0x00U;
-        buffer[(i << 1U) + 1U] = 0x00U; /* terminate with 0x00, 0x00 */
+//         buffer[(i << 1U)]      = 0x00U;
+//         buffer[(i << 1U) + 1U] = 0x00U; /* terminate with 0x00, 0x00 */
 
-        i += 1;
-        *(buffer - 1U) = i; /* the number of char */
+//         i += 1;
+//         *(buffer - 1U) = i; /* the number of char */
 
-        return (index + (i << 1U));
-    }
-}
+//         return (index + (i << 1U));
+//     }
+// }
 
 uint32_t USB_DeviceMemCopyByte(void *desBuf, uint8_t byte, uint32_t index)
 {
@@ -142,6 +141,51 @@ uint32_t USB_DeviceMemCopyQword(void *desBuf, uint64_t dword, uint32_t index)
     (void)memcpy((void *)buffer, (void *)&dword, 8U);
 
     return (index + 8U);
+}
+
+// uint32_t USB_DeviceMemCopyAsciiStringAsUnicode(uint8_t *buffer, const char *text, uint32_t index)
+uint32_t USB_DeviceMemCopyString(uint8_t *buffer, const char *text, uint32_t index)
+{
+    int i;
+    int length;
+    uint16_t *utf16;
+
+    if (!text)
+    {
+        buffer[index] = 0;
+        return index + 1;
+    }
+
+    length = strlen(text);
+    buffer[index] = (uint8_t)length + 1;
+    utf16 = (uint16_t*)&buffer[index + 1];
+
+    for(i = 0; i < length; i++, utf16++)
+    {
+        *utf16 = (uint16_t)text[i];
+    }
+    *utf16 = 0;
+
+    /* add null termination char, each char is 2 bytes, 1 byte for string length */
+    return index + (length + 1)*sizeof(uint16_t) + 1;
+}
+
+uint32_t USB_DeviceMemCopyUnicodeStringAsAscii(char *text, const uint8_t *buffer, uint32_t length, uint32_t index)
+{
+    uint8_t parsed_len = buffer[index];
+    uint16_t *unicode = (uint16_t*)&buffer[index + 1];
+    int i;
+
+    if (parsed_len > length)
+        return -1;
+
+    for(i = 0; i < parsed_len; i++)
+    {
+        text[i] = *(char *)unicode;
+        unicode++;
+    }
+
+    return index + 1 + parsed_len*2;
 }
 
 uint32_t USB_DeviceMemCopyUnicodeString(void *desBuf, const uint16_t *srcBuf, uint32_t index)
@@ -218,7 +262,7 @@ static uint32_t USB_DeviceParseDataType(uint16_t dataType, void *buffer, void *v
     switch (dataType)
     {
         case MTP_TYPE_STR:
-            offset = USB_DeviceMemCopyString(buffer, val, offset);
+            offset = USB_DeviceMemCopyString(buffer, (const char *)val, offset);
             break;
 
         case MTP_TYPE_INT8:
@@ -285,7 +329,7 @@ static uint32_t USB_DeviceParseDataType(uint16_t dataType, void *buffer, void *v
     return offset;
 }
 
-static void USB_DeviceParseDateTime(const uint16_t *dateTime, usb_device_mtp_file_time_stamp_t *timeStamp)
+static void USB_DeviceParseDateTime(const char *dateTime, usb_device_mtp_file_time_stamp_t *timeStamp)
 {
     const uint8_t *src = (const uint8_t *)dateTime;
 
@@ -325,7 +369,7 @@ static void USB_DeviceParseDateTime(const uint16_t *dateTime, usb_device_mtp_fil
 }
 
 /* return number of bytes. */
-static uint32_t USB_DeviceGetRootPath(usb_mtp_struct_t *mtp, uint32_t storageID, uint8_t *path)
+static uint32_t USB_DeviceGetRootPath(usb_mtp_struct_t *mtp, uint32_t storageID, char *path)
 {
     uint8_t i;
 
@@ -333,25 +377,23 @@ static uint32_t USB_DeviceGetRootPath(usb_mtp_struct_t *mtp, uint32_t storageID,
     {
         if (storageID == mtp->storageList->storageInfo[i].storageID)
         {
-            return USB_DeviceMemCopyUnicodeString(path, (const uint16_t *)mtp->storageList->storageInfo[i].rootPath, 0);
+            (void)strcpy(path, mtp->storageList->storageInfo[i].rootPath);
+
+            return strlen(path);
         }
     }
 
     return 0;
 }
 
-static usb_status_t USB_DeviceBuildPath(usb_mtp_struct_t *mtp, uint32_t storageID, uint32_t objHandle, uint8_t *path)
+static usb_status_t USB_DeviceBuildPath(usb_mtp_struct_t *mtp, uint32_t storageID, uint32_t objHandle, char *path)
 {
-    usb_status_t result;
+    usb_status_t result = kStatus_USB_Success;
     usb_mtp_obj_handle_t objHandleStruct;
     uint8_t nameLen;
-    uint32_t backwardOffset;
-    uint32_t forwardOffset;
-    uint32_t i;
+    uint8_t pathLen;
 
-    backwardOffset = USB_DeviceGetRootPath(mtp, storageID, path);
-    backwardOffset -= 2U; /* remove null-terminated */
-    forwardOffset = MTP_PATH_MAX_LEN;
+    pathLen = USB_DeviceGetRootPath(mtp, storageID, path);
 
     objHandleStruct.idUnion.parentID = objHandle;
     while (objHandleStruct.idUnion.parentID != 0U)
@@ -364,48 +406,23 @@ static usb_status_t USB_DeviceBuildPath(usb_mtp_struct_t *mtp, uint32_t storageI
             return kStatus_USB_Error;
         }
 
-        nameLen = USB_DeviceUnicodeStringLength(objHandleStruct.name);
-        forwardOffset -= nameLen;
-        forwardOffset -= 2U;
+        nameLen = strlen(objHandleStruct.name);
 
-        if ((forwardOffset < backwardOffset) || (forwardOffset > MTP_PATH_MAX_LEN))
+        if (pathLen + nameLen > MTP_PATH_MAX_LEN_ASCII)
         {
             /* please increase the length of path. */
             usb_echo("Please increase the length of path\r\n");
             return kStatus_USB_Error;
         }
 
-        (void)USB_DeviceMemCopyUnicodeString(&path[forwardOffset], objHandleStruct.name, 0);
-        path[forwardOffset + nameLen]      = '/';
-        path[forwardOffset + nameLen + 1U] = '\0';
+        (void)strcat(path, objHandleStruct.name);
+
+        pathLen += nameLen;
+        path[pathLen++] = '/';
+        path[pathLen++] = '\0';
     }
 
-    if (forwardOffset < MTP_PATH_MAX_LEN)
-    {
-        path[MTP_PATH_MAX_LEN - 1U] = '\0';
-        path[MTP_PATH_MAX_LEN - 2U] = '\0';
-
-        path[backwardOffset - 2U] = '/';
-        path[backwardOffset - 1U] = '\0';
-
-        if (forwardOffset > backwardOffset)
-        {
-            for (i = 0; i < (MTP_PATH_MAX_LEN - forwardOffset); i++)
-            {
-                path[i + backwardOffset] = path[i + forwardOffset];
-            }
-        }
-        else
-        {
-            /* no action, the path has been built, forwardOffset == backwardOffset */
-        }
-    }
-    else
-    {
-        /* no action, root path, forwardOffset == MTP_PATH_MAX_LEN */
-    }
-
-    return kStatus_USB_Success;
+    return result;
 }
 
 usb_status_t USB_DeviceGetObjHandleInfo(usb_mtp_struct_t *mtp,
@@ -439,7 +456,7 @@ static uint16_t USB_DeviceIdentifyFileType(usb_mtp_obj_handle_t *objHandleStruct
     }
 }
 
-uint32_t USB_DeviceCheckDirDepth(const uint16_t *path)
+uint32_t USB_DeviceCheckDirDepth(const char *path)
 {
     const uint8_t *src  = (const uint8_t *)path;
     uint32_t count      = 0;
@@ -462,7 +479,7 @@ uint32_t USB_DeviceCheckDirDepth(const uint16_t *path)
     return depthCount;
 }
 
-usb_status_t USB_DeviceDeleteDir(uint8_t *path)
+usb_status_t USB_DeviceDeleteDir(char *path)
 {
     static usb_device_mtp_file_info_t fno;
     static uint32_t nestedDepth = 0U;
@@ -478,24 +495,28 @@ usb_status_t USB_DeviceDeleteDir(uint8_t *path)
     }
     nestedDepth++;
 
-    result = USB_DeviceMtpOpenDir(&dir, (const uint16_t *)path);
+    result = USB_DeviceMtpOpenDir(&dir, path);
 
     if (result == kStatus_USB_Success)
     {
-        length         = USB_DeviceUnicodeStringLength((const uint16_t *)&path[0]);
+        // length         = USB_DeviceUnicodeStringLength((const char *)&path[0]);
+        length         = strlen(&path[0]);
+
         path[length++] = '/';
         path[length++] = '\0';
 
         for (;;)
         {
-            result = USB_DeviceMtpReadDir(dir, (const uint16_t *)path, &fno);
+            result = USB_DeviceMtpReadDir(dir, path, &fno);
             if (result != kStatus_USB_Success)
             {
                 break; /* Break on error or end of dir */
             }
 
             /* check buffer length */
-            length2 = length + USB_DeviceUnicodeStringLength((const uint16_t *)(&fno.name[0]));
+            // length2 = length + USB_DeviceUnicodeStringLength((const char *)(&fno.name[0]));
+            length2 = length + strlen((&fno.name[0]));
+
             length2 += 2U;
 
             if (length2 > MTP_PATH_MAX_LEN)
@@ -506,7 +527,7 @@ usb_status_t USB_DeviceDeleteDir(uint8_t *path)
                 break;
             }
 
-            (void)USB_DeviceMemCopyUnicodeString(&path[length], (const uint16_t *)&fno.name[0], 0);
+            (void)strcat(&path[length], &fno.name[0]);
 
             if ((fno.attrib & USB_DEVICE_MTP_DIR) != 0U)
             {
@@ -518,7 +539,7 @@ usb_status_t USB_DeviceDeleteDir(uint8_t *path)
             }
             else
             {
-                result = USB_DeviceMtpUnlink((const uint16_t *)path); /* delete file */
+                result = USB_DeviceMtpUnlink(path); /* delete file */
                 if (result != kStatus_USB_Success)
                 {
                     break;
@@ -531,13 +552,13 @@ usb_status_t USB_DeviceDeleteDir(uint8_t *path)
 
     (void)USB_DeviceMtpCloseDir(dir);
 
-    result = USB_DeviceMtpUnlink((const uint16_t *)path); /* delete self */
+    result = USB_DeviceMtpUnlink(path); /* delete self */
 
     nestedDepth--;
     return result;
 }
 
-usb_status_t USB_DeviceAppendNameToPath(uint16_t *path, const uint16_t *name)
+usb_status_t USB_DeviceAppendUnicodeNameToPath(char *path, const uint16_t *name)
 {
     uint32_t length;
     uint32_t length2;
@@ -547,33 +568,72 @@ usb_status_t USB_DeviceAppendNameToPath(uint16_t *path, const uint16_t *name)
         return kStatus_USB_Error;
     }
 
-    length = USB_DeviceUnicodeStringLength((const uint16_t *)path);
+    length = strlen(path);
 
     /* check path validity */
-    if (length < 2U)
+    if (length < 1U)
     {
         return kStatus_USB_Error;
     }
 
     /* if there is not '/' at the end of path, append '/'. */
-    if (path[(length - 2U) >> 1U] != '/')
+    if (path[length] != '/')
     {
-        path[length >> 1U] = '/';
-        length += 2U;
+        path[length++] = '/';
+        path[length++] = '\0';
     }
 
     /* check buffer length */
-    length2 = length + USB_DeviceUnicodeStringLength((const uint16_t *)name);
-    length2 += 2U;
+    length2 =  USB_DeviceUnicodeStringLength(name);
 
-    if (length2 > MTP_PATH_MAX_LEN)
+    if ((length + length2) > MTP_PATH_MAX_LEN_ASCII)
     {
         /* please increase the length of path. */
         usb_echo("Please increase the length of path\r\n");
         return kStatus_USB_Error;
     }
 
-    (void)USB_DeviceMemCopyUnicodeString(&path[length >> 1U], (const uint16_t *)name, 0);
+    (void)USB_DeviceMemCopyUnicodeStringAsAscii(&path[length], (const uint8_t *)name, length2, 0);
+
+    return kStatus_USB_Success;
+}
+
+usb_status_t USB_DeviceAppendNameToPath(char *path, const char *name)
+{
+    uint32_t length;
+    uint32_t length2;
+
+    if ((path == NULL) && (name == NULL))
+    {
+        return kStatus_USB_Error;
+    }
+
+    length = strlen(path);
+
+    /* check path validity */
+    if (length < 1U)
+    {
+        return kStatus_USB_Error;
+    }
+
+    /* if there is not '/' at the end of path, append '/'. */
+    if (path[length] != '/')
+    {
+        path[length++] = '/';
+        path[length++] = '\0';
+    }
+
+    /* check buffer length */
+    length2 = length + strlen(name);
+
+    if (length2 > MTP_PATH_MAX_LEN_ASCII)
+    {
+        /* please increase the length of path. */
+        usb_echo("Please increase the length of path\r\n");
+        return kStatus_USB_Error;
+    }
+
+    (void)strcat(path, name);
 
     return kStatus_USB_Success;
 }
@@ -586,13 +646,13 @@ usb_status_t USB_DeviceCopyFile(uint8_t *destPath, uint8_t *srcPath)
     uint32_t writeSize;
     usb_status_t result;
 
-    result = USB_DeviceMtpOpen(&fileSrc, (const uint16_t *)srcPath, USB_DEVICE_MTP_READ);
+    result = USB_DeviceMtpOpen(&fileSrc, (const char *)srcPath, USB_DEVICE_MTP_READ);
     if (result != kStatus_USB_Success)
     {
         return kStatus_USB_Error;
     }
 
-    result = USB_DeviceMtpOpen(&fileDest, (const uint16_t *)destPath,
+    result = USB_DeviceMtpOpen(&fileDest, (const char *)destPath,
                                USB_DEVICE_MTP_CREATE_ALWAYS | USB_DEVICE_MTP_READ | USB_DEVICE_MTP_WRITE);
     if (result != kStatus_USB_Success)
     {
@@ -622,136 +682,137 @@ usb_status_t USB_DeviceCopyFile(uint8_t *destPath, uint8_t *srcPath)
 
 usb_status_t USB_DeviceCopyDir(uint8_t *destPath, uint8_t *srcPath)
 {
-    static usb_device_mtp_file_info_t fno;
-    static uint32_t length;
-    static uint32_t length2;
-    usb_device_mtp_dir_handle_t dirSrc;
-    uint32_t lengthSrc;
-    uint32_t lengthDest;
-    usb_status_t result;
+    // static usb_device_mtp_file_info_t fno;
+    // static uint32_t length;
+    // static uint32_t length2;
+    // usb_device_mtp_dir_handle_t dirSrc;
+    // uint32_t lengthSrc;
+    // uint32_t lengthDest;
+    // usb_status_t result;
 
-    lengthSrc  = USB_DeviceUnicodeStringLength((const uint16_t *)srcPath);
-    lengthDest = USB_DeviceUnicodeStringLength((const uint16_t *)destPath);
+    // lengthSrc  = strlen(srcPath);
+    // lengthDest = strlen(destPath);
 
-    if ((lengthSrc == 0U) || (lengthDest == 0U))
-    {
-        return kStatus_USB_Error; /* invalid source or destination path */
-    }
+    // if ((lengthSrc == 0U) || (lengthDest == 0U))
+    // {
+    //     return kStatus_USB_Error; /* invalid source or destination path */
+    // }
 
-    lengthSrc--;
-    while ((lengthSrc > 0U) && ((srcPath[lengthSrc] != '\0') || (srcPath[lengthSrc - 1U] != '/')))
-    {
-        lengthSrc--;
-    }
-    if (lengthSrc == 0U)
-    {
-        return kStatus_USB_Error; /* cannot find the directory name. */
-    }
-    lengthSrc++;
+    // lengthSrc--;
+    // while ((lengthSrc > 0U) && ((srcPath[lengthSrc] != '\0') || (srcPath[lengthSrc - 1U] != '/')))
+    // {
+    //     lengthSrc--;
+    // }
+    // if (lengthSrc == 0U)
+    // {
+    //     return kStatus_USB_Error; /* cannot find the directory name. */
+    // }
+    // lengthSrc++;
 
-    destPath[lengthDest++] = '/';
-    destPath[lengthDest++] = '\0';
+    // destPath[lengthDest++] = '/';
+    // destPath[lengthDest++] = '\0';
 
-    /* Build destination path */
-    (void)USB_DeviceMemCopyUnicodeString(&destPath[lengthDest], (const uint16_t *)&srcPath[lengthSrc], 0U);
+    // /* Build destination path */
+    // (void)strcat(destPath, srcPath);
 
-    length2 = USB_DeviceCheckDirDepth((const uint16_t *)&destPath[0]);
+    // length2 = USB_DeviceCheckDirDepth(&destPath[0]);
 
-    if (length2 > USB_DEVICE_MTP_DIR_INSTANCE)
-    {
-        usb_echo("The created directory is too deep, please increase the dir instance\r\n");
-        result = kStatus_USB_Error;
-    }
-    else
-    {
-        result = USB_DeviceMtpMakeDir((const uint16_t *)destPath); /* Create directory */
-    }
+    // if (length2 > USB_DEVICE_MTP_DIR_INSTANCE)
+    // {
+    //     usb_echo("The created directory is too deep, please increase the dir instance\r\n");
+    //     result = kStatus_USB_Error;
+    // }
+    // else
+    // {
+    //     result = USB_DeviceMtpMakeDir(destPath); /* Create directory */
+    // }
 
-    if (result == kStatus_USB_Success)
-    {
-        /* Open directory */
-        result = USB_DeviceMtpOpenDir(&dirSrc, (const uint16_t *)srcPath);
-    }
+    // if (result == kStatus_USB_Success)
+    // {
+    //     /* Open directory */
+    //     result = USB_DeviceMtpOpenDir(&dirSrc, srcPath);
+    // }
 
-    if (result == kStatus_USB_Success)
-    {
-        lengthSrc            = USB_DeviceUnicodeStringLength((const uint16_t *)srcPath);
-        srcPath[lengthSrc++] = '/';
-        srcPath[lengthSrc++] = '\0';
+    // if (result == kStatus_USB_Success)
+    // {
+    //     lengthSrc            = strlen(srcPath);
+    //     srcPath[lengthSrc++] = '/';
+    //     srcPath[lengthSrc++] = '\0';
 
-        for (;;)
-        {
-            result = USB_DeviceMtpReadDir(dirSrc, (const uint16_t *)srcPath, &fno);
-            if ((result == kStatus_USB_InvalidRequest) || (result != kStatus_USB_Success))
-            {
-                if (result == kStatus_USB_InvalidRequest)
-                {
-                    result = kStatus_USB_Success; /* return success when reaching end of dir */
-                }
-                break; /* Break on error or end of dir */
-            }
+    //     for (;;)
+    //     {
+    //         result = USB_DeviceMtpReadDir(dirSrc, srcPath, &fno);
+    //         if ((result == kStatus_USB_InvalidRequest) || (result != kStatus_USB_Success))
+    //         {
+    //             if (result == kStatus_USB_InvalidRequest)
+    //             {
+    //                 result = kStatus_USB_Success; /* return success when reaching end of dir */
+    //             }
+    //             break; /* Break on error or end of dir */
+    //         }
 
-            /* check buffer length */
-            length2 = lengthSrc + USB_DeviceUnicodeStringLength((const uint16_t *)(&fno.name[0]));
-            length2 += 2U;
+    //         /* check buffer length */
+    //         length2 = lengthSrc + strlen(&fno.name[0]);
+    //         length2 += 2U;
 
-            if (length2 > MTP_PATH_MAX_LEN)
-            {
-                /* please increase the length of path. */
-                usb_echo("Please increase the length of path\r\n");
-                result = kStatus_USB_Error;
-                break;
-            }
+    //         if (length2 > MTP_PATH_MAX_LEN_ASCII)
+    //         {
+    //             /* please increase the length of path. */
+    //             usb_echo("Please increase the length of path\r\n");
+    //             result = kStatus_USB_Error;
+    //             break;
+    //         }
 
-            (void)USB_DeviceMemCopyUnicodeString(&srcPath[lengthSrc], (const uint16_t *)&fno.name[0], 0);
+    //         (void)USB_DeviceMemCopyUnicodeString(&srcPath[lengthSrc], (const char *)&fno.name[0], 0);
 
-            if ((fno.attrib & USB_DEVICE_MTP_DIR) != 0U)
-            {
-                result = USB_DeviceCopyDir(destPath, srcPath); /* recursively copy directory */
-                if (result != kStatus_USB_Success)
-                {
-                    break;
-                }
-            }
-            else
-            {
-                length             = USB_DeviceUnicodeStringLength((const uint16_t *)destPath);
-                destPath[length++] = '/';
-                destPath[length++] = '\0';
+    //         if ((fno.attrib & USB_DEVICE_MTP_DIR) != 0U)
+    //         {
+    //             result = USB_DeviceCopyDir(destPath, srcPath); /* recursively copy directory */
+    //             if (result != kStatus_USB_Success)
+    //             {
+    //                 break;
+    //             }
+    //         }
+    //         else
+    //         {
+    //             length             = USB_DeviceUnicodeStringLength((const char *)destPath);
+    //             destPath[length++] = '/';
+    //             destPath[length++] = '\0';
 
-                /* check buffer length */
-                length2 = length + USB_DeviceUnicodeStringLength((const uint16_t *)(&fno.name[0]));
-                length2 += 2U;
+    //             /* check buffer length */
+    //             length2 = length + USB_DeviceUnicodeStringLength((const char *)(&fno.name[0]));
+    //             length2 += 2U;
 
-                if (length2 > MTP_PATH_MAX_LEN)
-                {
-                    /* please increase the length of path. */
-                    usb_echo("Please increase the length of path\r\n");
-                    result = kStatus_USB_Error;
-                    break;
-                }
+    //             if (length2 > MTP_PATH_MAX_LEN)
+    //             {
+    //                 /* please increase the length of path. */
+    //                 usb_echo("Please increase the length of path\r\n");
+    //                 result = kStatus_USB_Error;
+    //                 break;
+    //             }
 
-                (void)USB_DeviceMemCopyUnicodeString(&destPath[length], (const uint16_t *)&fno.name[0], 0);
+    //             (void)USB_DeviceMemCopyUnicodeString(&destPath[length], (const char *)&fno.name[0], 0);
 
-                result = USB_DeviceCopyFile(destPath, srcPath); /* copy file */
-                if (result != kStatus_USB_Success)
-                {
-                    break;
-                }
-                destPath[--length] = '\0';
-                destPath[--length] = '\0';
-            }
-        }
-        srcPath[--lengthSrc] = '\0';
-        srcPath[--lengthSrc] = '\0';
+    //             result = USB_DeviceCopyFile(destPath, srcPath); /* copy file */
+    //             if (result != kStatus_USB_Success)
+    //             {
+    //                 break;
+    //             }
+    //             destPath[--length] = '\0';
+    //             destPath[--length] = '\0';
+    //         }
+    //     }
+    //     srcPath[--lengthSrc] = '\0';
+    //     srcPath[--lengthSrc] = '\0';
 
-        (void)USB_DeviceMtpCloseDir(dirSrc);
-    }
+    //     (void)USB_DeviceMtpCloseDir(dirSrc);
+    // }
 
-    destPath[--lengthDest] = '\0';
-    destPath[--lengthDest] = '\0';
+    // destPath[--lengthDest] = '\0';
+    // destPath[--lengthDest] = '\0';
 
-    return result;
+    // return result;
+    return kStatus_USB_Success;
 }
 
 static uint32_t USB_DeviceAssignDevPropVal(
@@ -800,7 +861,7 @@ static uint32_t USB_DeviceAssignObjPropVal(
             break;
 
         case MTP_OBJECT_PROPERTY_OBJECT_FILE_NAME:
-            offset = USB_DeviceMemCopyUnicodeString(buffer, &objHandleStruct->name[0], offset);
+            offset = USB_DeviceMemCopyString(buffer, &objHandleStruct->name[0], offset);
             break;
 
         case MTP_OBJECT_PROPERTY_DATE_MODIFIED:
@@ -825,11 +886,11 @@ static uint32_t USB_DeviceAssignObjPropVal(
             break;
 
         case MTP_OBJECT_PROPERTY_NAME:
-            offset = USB_DeviceMemCopyUnicodeString(buffer, &objHandleStruct->name[0], offset);
+            offset = USB_DeviceMemCopyString(buffer, &objHandleStruct->name[0], offset);
             break;
 
         case MTP_OBJECT_PROPERTY_DISPLAY_NAME:
-            offset = USB_DeviceMemCopyUnicodeString(buffer, &objHandleStruct->name[0], offset);
+            offset = USB_DeviceMemCopyString(buffer, &objHandleStruct->name[0], offset);
             break;
 
         case MTP_OBJECT_PROPERTY_DATE_ADDED:
@@ -1086,7 +1147,7 @@ void USB_DeviceCmdGetStorageInfo(void *param)
     uint32_t offset                            = USB_DEVICE_MTP_MINIMUM_CONTAINER_LENGTH;
     uint8_t *readBuf                           = (uint8_t *)&g_mtpTransferBuffer[0];
     uint8_t i;
-    const uint8_t *rootPath;
+    const char *rootPath;
     uint64_t freeBytes;
     uint64_t totalBytes;
     usb_device_mtp_storage_info_t *storageInfo;
@@ -1114,8 +1175,8 @@ void USB_DeviceCmdGetStorageInfo(void *param)
         {
             /* Build StorageInfo dataset here. For more information about StorageInfo dataset,
                please refer to chapter 5.2.2 in the MTP spec Rev1.1. */
-            USB_DeviceMtpGetDiskTotalBytes((const uint16_t *)rootPath, &totalBytes);
-            USB_DeviceMtpGetDiskFreeBytes((const uint16_t *)rootPath, &freeBytes);
+            USB_DeviceMtpGetDiskTotalBytes((const char *)rootPath, &totalBytes);
+            USB_DeviceMtpGetDiskFreeBytes((const char *)rootPath, &freeBytes);
 
             offset = USB_DeviceMemCopyWord(readBuf, storageInfo[i].storageType, offset);
             offset = USB_DeviceMemCopyWord(readBuf, storageInfo[i].fileSystemType, offset);
@@ -1253,10 +1314,10 @@ void USB_DeviceCmdGetObjHandles(void *param)
             else
             {
                 /* traverse directory to find its child */
-                result = USB_DeviceMtpOpenDir(&dir, (const uint16_t *)&g_mtp.path[0]);
+                result = USB_DeviceMtpOpenDir(&dir, (const char *)&g_mtp.path[0]);
                 for (;;)
                 {
-                    result = USB_DeviceMtpReadDir(dir, (const uint16_t *)&g_mtp.path[0], &fInfo);
+                    result = USB_DeviceMtpReadDir(dir, (const char *)&g_mtp.path[0], &fInfo);
                     if (result != kStatus_USB_Success)
                     {
                         break; /* Break on error or end of dir */
@@ -1278,8 +1339,7 @@ void USB_DeviceCmdGetObjHandles(void *param)
                             objHandleStruct.flag |= MTP_OBJECT_DIR;
                         }
 
-                        (void)USB_DeviceMemCopyUnicodeString(&objHandleStruct.name[0], (const uint16_t *)&fInfo.name[0],
-                                                             0U);
+                        (void)strcpy(&objHandleStruct.name[0], &fInfo.name[0]);
 
                         result = USB_DeviceMtpObjHandleWrite(objHandleStruct.handleID, &objHandleStruct);
 
@@ -1365,10 +1425,10 @@ void USB_DeviceCmdGetObjHandles(void *param)
                 else
                 {
                     /* traverse directory to find its child */
-                    result = USB_DeviceMtpOpenDir(&dir, (const uint16_t *)&g_mtp.path[0]);
+                    result = USB_DeviceMtpOpenDir(&dir, (const char *)&g_mtp.path[0]);
                     for (;;)
                     {
-                        result = USB_DeviceMtpReadDir(dir, (const uint16_t *)&g_mtp.path[0], &fInfo);
+                        result = USB_DeviceMtpReadDir(dir, (const char *)&g_mtp.path[0], &fInfo);
                         if (result != kStatus_USB_Success)
                         {
                             break; /* Break on error or end of dir */
@@ -1391,8 +1451,7 @@ void USB_DeviceCmdGetObjHandles(void *param)
                                     objHandleStruct.flag |= MTP_OBJECT_DIR;
                                 }
 
-                                (void)USB_DeviceMemCopyUnicodeString(&objHandleStruct.name[0],
-                                                                     (const uint16_t *)&fInfo.name[0], 0U);
+                                (void)strcpy(objHandleStruct.name, fInfo.name);
 
                                 result = USB_DeviceMtpObjHandleWrite(objHandleStruct.handleID, &objHandleStruct);
 
@@ -1713,7 +1772,7 @@ void USB_DeviceCmdGetObjInfo(void *param)
         offset = USB_DeviceMemCopyWord(readBuf, 0, offset);                                 /* association type */
         offset = USB_DeviceMemCopyDword(readBuf, 0, offset);                            /* association description */
         offset = USB_DeviceMemCopyDword(readBuf, 0, offset);                            /* sequence number */
-        offset = USB_DeviceMemCopyUnicodeString(readBuf, objHandleStruct.name, offset); /* file name */
+        offset = USB_DeviceMemCopyString(readBuf, objHandleStruct.name, offset); /* file name */
         offset = USB_DeviceAssignObjPropVal(MTP_OBJECT_PROPERTY_DATE_ADDED, MTP_TYPE_STR, readBuf, &objHandleStruct,
                                             offset); /* date created */
         offset = USB_DeviceAssignObjPropVal(MTP_OBJECT_PROPERTY_DATE_MODIFIED, MTP_TYPE_STR, readBuf, &objHandleStruct,
@@ -1759,7 +1818,7 @@ void USB_DeviceCmdGetObj(void *param)
                 (USB_DEVICE_MTP_TRANSFER_BUFF_SIZE - USB_DEVICE_MTP_MINIMUM_CONTAINER_LENGTH) :
                 objHandleStruct.size;
 
-        result = USB_DeviceMtpOpen(&g_mtp.file, (const uint16_t *)&g_mtp.path[0], USB_DEVICE_MTP_READ);
+        result = USB_DeviceMtpOpen(&g_mtp.file, (const char *)&g_mtp.path[0], USB_DEVICE_MTP_READ);
 
         if (result == kStatus_USB_Success)
         {
@@ -1889,7 +1948,7 @@ void USB_DeviceCmdSendObjInfo(void *param)
             return;
         }
 
-        USB_DeviceMtpGetDiskFreeBytes((const uint16_t *)&g_mtp.path[0], &freeBytes);
+        USB_DeviceMtpGetDiskFreeBytes((const char *)&g_mtp.path[0], &freeBytes);
 
         if (freeBytes < objSize)
         {
@@ -1903,7 +1962,7 @@ void USB_DeviceCmdSendObjInfo(void *param)
         }
 
         /* build path here(append file name to the path) */
-        if (USB_DeviceAppendNameToPath((uint16_t *)g_mtp.path, (const uint16_t *)(writeBuf + 53U)) !=
+        if (USB_DeviceAppendUnicodeNameToPath((char *)g_mtp.path, (const uint16_t *)(writeBuf + 53U)) !=
             kStatus_USB_Success)
         {
             dataInfo->code = MTP_RESPONSE_ACCESS_DENIED;
@@ -1912,7 +1971,7 @@ void USB_DeviceCmdSendObjInfo(void *param)
 
         if (objFormat == MTP_FORMAT_ASSOCIATION)
         {
-            length2 = USB_DeviceCheckDirDepth((const uint16_t *)&g_mtp.path[0]);
+            length2 = USB_DeviceCheckDirDepth((const char *)&g_mtp.path[0]);
 
             if (length2 > USB_DEVICE_MTP_DIR_INSTANCE)
             {
@@ -1921,7 +1980,7 @@ void USB_DeviceCmdSendObjInfo(void *param)
             }
             else
             {
-                result = USB_DeviceMtpMakeDir((const uint16_t *)&g_mtp.path[0]); /* Create directory */
+                result = USB_DeviceMtpMakeDir((const char *)&g_mtp.path[0]); /* Create directory */
             }
 
             if (result != kStatus_USB_Success)
@@ -1933,7 +1992,7 @@ void USB_DeviceCmdSendObjInfo(void *param)
         else
         {
             result = USB_DeviceMtpOpen(
-                &file, (const uint16_t *)&g_mtp.path[0],
+                &file, (const char *)&g_mtp.path[0],
                 USB_DEVICE_MTP_READ | USB_DEVICE_MTP_WRITE | USB_DEVICE_MTP_CREATE_ALWAYS); /* Create file */
             (void)USB_DeviceMtpClose(file);
 
@@ -1950,12 +2009,12 @@ void USB_DeviceCmdSendObjInfo(void *param)
 
         if (*(uint8_t *)(writeBuf + length) != 0U)
         {
-            USB_DeviceParseDateTime((const uint16_t *)(writeBuf + length + 1U), &g_mtp.timeStamp);
+            USB_DeviceParseDateTime((const char *)(writeBuf + length + 1U), &g_mtp.timeStamp);
         }
         else
         {
             /* Get date and time. */
-            USB_DeviceMtpFstat(NULL, (const uint16_t *)&g_mtp.path[0], &fno);
+            USB_DeviceMtpFstat(NULL, (const char *)&g_mtp.path[0], &fno);
             *(uint32_t *)(&g_mtp.timeStamp)        = fno.dateUnion.date;
             *((uint32_t *)(&g_mtp.timeStamp) + 1U) = fno.timeUnion.time;
         }
@@ -1974,7 +2033,7 @@ void USB_DeviceCmdSendObjInfo(void *param)
         {
             objHandleStruct.flag |= MTP_OBJECT_DIR;
             /* modify time stamp */
-            USB_DeviceMtpUtime((const uint16_t *)&g_mtp.path[0], &g_mtp.timeStamp);
+            USB_DeviceMtpUtime((const char *)&g_mtp.path[0], &g_mtp.timeStamp);
         }
 
         (void)USB_DeviceMemCopyUnicodeString(&objHandleStruct.name[0], (const uint16_t *)(writeBuf + 53U), 0U);
@@ -2018,7 +2077,7 @@ void USB_DeviceCmdSendObj(void *param)
 
         g_mtp.transferDoneSize = 0;
 
-        result = USB_DeviceMtpOpen(&g_mtp.file, (const uint16_t *)&g_mtp.path[0],
+        result = USB_DeviceMtpOpen(&g_mtp.file, &g_mtp.path[0],
                                    USB_DEVICE_MTP_READ | USB_DEVICE_MTP_WRITE);
     }
     else if ((dataInfo->curPhase == USB_DEVICE_MTP_PHASE_DATA) || (dataInfo->curPhase == USB_DEVICE_MTP_PHASE_RESPONSE))
@@ -2028,7 +2087,7 @@ void USB_DeviceCmdSendObj(void *param)
         {
             g_mtp.transferTotalSize = USB_DEVICE_MTP_MAX_UINT64_VAL;
 
-            USB_DeviceMtpGetDiskFreeBytes((const uint16_t *)&g_mtp.path[0], &freeBytes);
+            USB_DeviceMtpGetDiskFreeBytes(&g_mtp.path[0], &freeBytes);
 
             /* ensure at least 4GB space for this object. */
             if (freeBytes < USB_DEVICE_MTP_MAX_UINT32_VAL)
@@ -2104,14 +2163,14 @@ void USB_DeviceCmdSendObj(void *param)
             (void)USB_DeviceMtpClose(g_mtp.file);
 
             /* modify time stamp */
-            USB_DeviceMtpUtime((const uint16_t *)&g_mtp.path[0], &g_mtp.timeStamp);
+            USB_DeviceMtpUtime(&g_mtp.path[0], &g_mtp.timeStamp);
         }
     }
     else if (dataInfo->curPhase == USB_DEVICE_MTP_PHASE_CANCELLATION)
     {
         g_mtp.validObjInfo = 0;
         (void)USB_DeviceMtpClose(g_mtp.file);
-        result = USB_DeviceMtpUnlink((const uint16_t *)&g_mtp.path[0]);
+        result = USB_DeviceMtpUnlink(&g_mtp.path[0]);
     }
     else
     {
@@ -2152,7 +2211,7 @@ void USB_DeviceCmdDeleteObj(void *param)
         }
         else
         {
-            result = USB_DeviceMtpUnlink((const uint16_t *)&g_mtp.path[0]);
+            result = USB_DeviceMtpUnlink(&g_mtp.path[0]);
         }
 
         if (result == kStatus_USB_Success)
@@ -2292,7 +2351,7 @@ void USB_DeviceCmdSetDevicePropVal(void *param)
                     size = MTP_DEVICE_FRIENDLY_NAME_LEN;
                 }
 
-                (void)memcpy(g_mtp.devFriendlyName, (const uint16_t *)(writeBuf + 1U), size);
+                (void)memcpy(g_mtp.devFriendlyName, (writeBuf + 1U), size);
 
                 g_mtp.devFriendlyName[MTP_DEVICE_FRIENDLY_NAME_LEN - 1U] = '\0';
                 g_mtp.devFriendlyName[MTP_DEVICE_FRIENDLY_NAME_LEN - 2U] = '\0';
@@ -2383,7 +2442,7 @@ void USB_DeviceCmdSetObjPropVal(void *param)
     uint32_t j;
     uint32_t size;
     usb_mtp_obj_handle_t objHandleStruct;
-    uint16_t renameBuffer[MTP_PATH_MAX_LEN >> 1U];
+    char renameBuffer[MTP_PATH_MAX_LEN >> 1U];
     usb_status_t result;
     usb_device_mtp_obj_prop_t *prop;
 
@@ -2467,7 +2526,7 @@ void USB_DeviceCmdSetObjPropVal(void *param)
                 };
                 (void)USB_DeviceMemCopyUnicodeString(&renameBuffer[size + 1U], (const uint16_t *)(writeBuf + 1U), 0);
 
-                result = USB_DeviceMtpRename((const uint16_t *)&g_mtp.path[0], (const uint16_t *)&renameBuffer[0]);
+                result = USB_DeviceMtpRename(&g_mtp.path[0], &renameBuffer[0]);
 
                 if (result != kStatus_USB_Success)
                 {
@@ -2533,7 +2592,7 @@ void USB_DeviceCmdMoveObj(void *param)
     uint32_t storageID                         = dataInfo->param[1];
     uint32_t newParentObj                      = dataInfo->param[2];
     usb_mtp_obj_handle_t objHandleStruct;
-    uint16_t destPath[MTP_PATH_MAX_LEN >> 1U];
+    char destPath[MTP_PATH_MAX_LEN >> 1U];
     usb_status_t result;
     uint8_t i;
 
@@ -2560,14 +2619,14 @@ void USB_DeviceCmdMoveObj(void *param)
     /* build destination path */
     if (newParentObj == 0U)
     {
-        USB_DeviceGetRootPath(&g_mtp, storageID, (uint8_t *)&destPath[0]);
+        USB_DeviceGetRootPath(&g_mtp, storageID, &destPath[0]);
     }
     else
     {
         if ((newParentObj >= g_mtp.nextHandleID) ||
             (USB_DeviceGetObjHandleInfo(&g_mtp, newParentObj, &objHandleStruct) != kStatus_USB_Success) ||
             ((objHandleStruct.flag & MTP_OBJECT_DIR) == 0U) ||
-            (USB_DeviceBuildPath(&g_mtp, objHandleStruct.storageID, newParentObj, (uint8_t *)&destPath[0]) !=
+            (USB_DeviceBuildPath(&g_mtp, objHandleStruct.storageID, newParentObj, &destPath[0]) !=
              kStatus_USB_Success))
         {
             /* invalid parent object */
@@ -2587,12 +2646,12 @@ void USB_DeviceCmdMoveObj(void *param)
     }
 
     /* append file name to the path */
-    result = USB_DeviceAppendNameToPath(&destPath[0], (const uint16_t *)&objHandleStruct.name[0]);
+    result = USB_DeviceAppendNameToPath(&destPath[0], &objHandleStruct.name[0]);
 
     /* Move obejct */
     if (result == kStatus_USB_Success)
     {
-        result = USB_DeviceMtpRename((uint16_t *)g_mtp.path, (uint16_t *)&destPath[0]);
+        result = USB_DeviceMtpRename((char *)g_mtp.path, (char *)&destPath[0]);
     }
 
     if (result != kStatus_USB_Success)
@@ -2615,8 +2674,8 @@ void USB_DeviceCmdCopyObj(void *param)
     uint32_t storageID                         = dataInfo->param[1];
     uint32_t newParentObj                      = dataInfo->param[2];
     usb_mtp_obj_handle_t objHandleStruct;
-    uint16_t destPath[MTP_PATH_MAX_LEN >> 1U];
-    uint16_t srcPath[MTP_PATH_MAX_LEN >> 1U];
+    char destPath[MTP_PATH_MAX_LEN >> 1U];
+    char srcPath[MTP_PATH_MAX_LEN >> 1U];
     usb_device_mtp_file_info_t fno;
     usb_status_t result;
     uint8_t i;
@@ -2646,14 +2705,14 @@ void USB_DeviceCmdCopyObj(void *param)
     /* build destination path */
     if (newParentObj == 0U)
     {
-        (void)USB_DeviceGetRootPath(&g_mtp, storageID, (uint8_t *)&destPath[0]);
+        (void)USB_DeviceGetRootPath(&g_mtp, storageID, &destPath[0]);
     }
     else
     {
         if ((newParentObj >= g_mtp.nextHandleID) ||
             (USB_DeviceGetObjHandleInfo(&g_mtp, newParentObj, &objHandleStruct) != kStatus_USB_Success) ||
             ((objHandleStruct.flag & MTP_OBJECT_DIR) == 0U) ||
-            (USB_DeviceBuildPath(&g_mtp, objHandleStruct.storageID, newParentObj, (uint8_t *)&destPath[0]) !=
+            (USB_DeviceBuildPath(&g_mtp, objHandleStruct.storageID, newParentObj, &destPath[0]) !=
              kStatus_USB_Success))
         {
             /* invalid parent object */
@@ -2665,7 +2724,7 @@ void USB_DeviceCmdCopyObj(void *param)
     /* build source path */
     if ((objHandle >= g_mtp.nextHandleID) || (objHandle == 0U) ||
         (USB_DeviceGetObjHandleInfo(&g_mtp, objHandle, &objHandleStruct) != kStatus_USB_Success) ||
-        (USB_DeviceBuildPath(&g_mtp, objHandleStruct.storageID, objHandle, (uint8_t *)&srcPath[0]) !=
+        (USB_DeviceBuildPath(&g_mtp, objHandleStruct.storageID, objHandle, &srcPath[0]) !=
          kStatus_USB_Success))
     {
         /* invalid object handle */
@@ -2679,13 +2738,13 @@ void USB_DeviceCmdCopyObj(void *param)
 
         if (result == kStatus_USB_Success)
         {
-            (void)USB_DeviceAppendNameToPath(&destPath[0], (const uint16_t *)&objHandleStruct.name[0]);
+            (void)USB_DeviceAppendNameToPath(&destPath[0], (const char *)&objHandleStruct.name[0]);
         }
     }
     else
     {
         /* append file name to the path */
-        result = USB_DeviceAppendNameToPath(&destPath[0], (const uint16_t *)&objHandleStruct.name[0]);
+        result = USB_DeviceAppendNameToPath(&destPath[0], (const char *)&objHandleStruct.name[0]);
 
         if (result == kStatus_USB_Success)
         {
@@ -2700,7 +2759,7 @@ void USB_DeviceCmdCopyObj(void *param)
     else
     {
         /* get date and time */
-        (void)USB_DeviceMtpFstat(NULL, (const uint16_t *)&destPath[0], &fno);
+        (void)USB_DeviceMtpFstat(NULL, (const char *)&destPath[0], &fno);
 
         objHandleStruct.handleID = g_mtp.nextHandleID;
         g_mtp.nextHandleID++;

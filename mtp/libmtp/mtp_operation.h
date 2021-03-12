@@ -12,7 +12,9 @@
 #define MTP_VENDOR_EXTENSION_ID (6UL)
 #define MTP_VERSION             (100U) /* Represent 1.00 */
 
-#define MTP_PATH_MAX_LEN (256U * 2U) /* The maximum length of path */
+#define MTP_PATH_MAX_LEN (256U * 2U) /* The maximum length of path UTF16*/
+
+#define MTP_PATH_MAX_LEN_ASCII (255U) /* The maximum length of path ASCII */
 
 #define MTP_STORAGE_COUNT (2U) /* The number of storage */
 
@@ -128,9 +130,9 @@ typedef struct _usb_device_mtp_obj_prop_list
 
 typedef struct _usb_device_mtp_storage_info
 {
-    uint8_t *rootPath;
-    char *storageDesc;
-    char *volumeID;
+    const char *rootPath;
+    const char *storageDesc;
+    const char *volumeID;
     uint32_t storageID;
     uint16_t storageType;
     uint16_t fileSystemType;
@@ -192,7 +194,7 @@ typedef struct _usb_mtp_file_info
     uint32_t parentID;
     uint32_t storageID;
     uint32_t date;
-    uint16_t *name;
+    const char *name;
     uint64_t size;
     uint8_t flag;
 } usb_mtp_file_info_t;

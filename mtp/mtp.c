@@ -238,7 +238,7 @@ usb_device_mtp_obj_prop_list_t g_ObjPropList = {
 
 /* 2-byte unicode */
 USB_DMA_INIT_DATA_ALIGN(2U)
-const uint8_t g_StorageRootPath[][MTP_PATH_MAX_LEN >> 1U] = {
+const char g_StorageRootPath[][MTP_PATH_MAX_LEN >> 1U] = {
     {"/sys/user/music"},
     {"/sys/user/backup"}
 };
@@ -283,7 +283,7 @@ usb_mtp_struct_t g_mtp;
 
 /* The buffer is used to build path, please make sure the buffer have enough space to accommodate the longest path.
    If the path length exceeds MTP_PATH_MAX_LEN, the current transaction will end with a failure. */
-USB_DMA_NONINIT_DATA_ALIGN(2U) uint16_t g_pathBuffer[MTP_PATH_MAX_LEN >> 1U];
+USB_DMA_NONINIT_DATA_ALIGN(2U) const char g_pathBuffer[MTP_PATH_MAX_LEN_ASCII];
 USB_DMA_NONINIT_DATA_ALIGN(USB_DATA_ALIGN_SIZE) uint32_t g_mtpTransferBuffer[USB_DEVICE_MTP_TRANSFER_BUFF_SIZE >> 2];
 /*******************************************************************************
  * Code
@@ -659,7 +659,7 @@ usb_status_t USB_DeviceMtpApplicationInit(void* arg)
     g_mtp.storageList     = &g_StorageList;
     g_mtp.objPropList     = &g_ObjPropList;
     // g_mtp.devFriendlyName = &g_DevFriendlyName[0];
-    g_mtp.path            = (uint8_t *)&g_pathBuffer[0];
+    g_mtp.path            = g_pathBuffer;
 
     g_mtp.mtpHandle          = (class_handle_t)arg;
     g_mtp.mutexUsbToDiskTask = 0U;
@@ -668,12 +668,6 @@ usb_status_t USB_DeviceMtpApplicationInit(void* arg)
     if (NULL == g_mtp.queueHandle)
     {
         usb_echo("Queue create failed\r\n");
-        return kStatus_USB_Error;
-    }
-
-    if (kStatus_USB_Success != USB_DeviceMtpFSInit((const uint16_t *)g_mtp.storageList->storageInfo[0].rootPath))
-    {
-        usb_echo("Disk init failed\r\n");
         return kStatus_USB_Error;
     }
 

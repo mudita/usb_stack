@@ -32,7 +32,7 @@ typedef struct _usb_mtp_struct
     usb_device_mtp_storage_list_t *storageList;
     usb_device_mtp_obj_prop_list_t *objPropList;
     uint32_t nextHandleID;
-    uint8_t *path;
+    char *path;
     uint8_t *devFriendlyName;
     uint64_t transferDoneSize;
     uint64_t transferTotalSize;

@@ -48,7 +48,7 @@ typedef struct
 typedef struct
 {
     DIR *dir;
-    const uint16_t *dirPath;
+    const char *dirPath;
     uint8_t flags;
 } usb_device_mtp_dir_instance_t;
 
@@ -132,38 +132,13 @@ typedef struct
 //     return kStatus_USB_Busy;
 // }
 
-// static const uint16_t *USB_DeviceMtpGetDirPath(uint32_t i)
-// {
-//     if ((s_DirInstance[i].flags != 0U) && (s_DirInstance[i].dir))
-//     {
-//         LOG_INFO("Found dir handle to get path: %lu", i);
-//         return s_DirInstance[i].dirPath;
-//     }
-//     LOG_ERROR("Failed to find dir path");
-
-//     return NULL;
-// }
-
-// static usb_status_t USB_DeviceMtpSetDirPath(uint32_t i, const uint16_t *fileName)
-// {
-//     if ((s_DirInstance[i].flags != 0U) && (s_DirInstance[i].dir))
-//     {
-//         LOG_INFO("Found dir handle to set path: %lu", i);
-//         s_DirInstance[i].dirPath = fileName;
-//         return kStatus_USB_Success;
-//     }
-//     LOG_ERROR("Failed to set dir path");
-
-//     return kStatus_USB_Busy;
-// }
-
-usb_status_t USB_DeviceMtpOpen(usb_device_mtp_file_handle_t *file, const uint16_t *fileName, uint32_t flags)
+usb_status_t USB_DeviceMtpOpen(usb_device_mtp_file_handle_t *file, const char *fileName, uint32_t flags)
 {
     FILE *fil;
     char mode[4] = {'r', 0, };
     uint32_t modeIdx = 0;
 
-    LOG_INFO("File name: %s", (const uint8_t *)fileName);
+    LOG_INFO("File name: %s", (const char *)fileName);
 
     // if (USB_DeviceMtpAllocateFileHandle(&fil) != kStatus_USB_Success)
     // {
@@ -187,13 +162,13 @@ usb_status_t USB_DeviceMtpOpen(usb_device_mtp_file_handle_t *file, const uint16_
         mode[modeIdx++] = '+';
     }
 
-    LOG_INFO("Attempt open file: %s, mode %s", (const uint8_t *)fileName, mode);
+    LOG_INFO("Attempt open file: %s, mode %s", (const char *)fileName, mode);
     fil = fopen((const char*)fileName, mode);
 
     if (!fil)
     {
         // USB_DeviceMtpFreeFileHandle(fil);
-        LOG_ERROR("Failed to open file: %s", (const uint8_t *)fileName);
+        LOG_ERROR("Failed to open file: %s", (const char *)fileName);
         return kStatus_USB_Error;
     }
 
@@ -293,12 +268,12 @@ usb_status_t USB_DeviceMtpWrite(usb_device_mtp_file_handle_t file, void *buffer,
 #define IS_READONLY(mode) ((mode & (S_IWUSR | S_IWGRP | S_IWOTH)) == 0)
 #define IS_DIRECTORY(mode) (mode & S_IFDIR)
 
-usb_status_t USB_DeviceMtpFstat(const usb_device_mtp_dir_handle_t dir, const uint16_t *filePath, usb_device_mtp_file_info_t *fileInfo)
+usb_status_t USB_DeviceMtpFstat(const usb_device_mtp_dir_handle_t dir, const char *filePath, usb_device_mtp_file_info_t *fileInfo)
 {
     struct stat fno;
     uint32_t count;
-    uint8_t *src;
-    uint16_t *dest;
+    char *src;
+    char *dest;
     const char *file = (const char *)filePath;
 
     LOG_INFO("Attempt stat file: %s", file);
@@ -337,8 +312,8 @@ usb_status_t USB_DeviceMtpFstat(const usb_device_mtp_dir_handle_t dir, const uin
     }
 
     /* copy file name, unicode encoding. */
-    src   = (uint8_t *)strrchr(file, '/') + 1;
-    dest  = (uint16_t *)&fileInfo->name[0];
+    src   = (char *)strrchr(file, '/') + 1;
+    dest  = (char *)&fileInfo->name[0];
     count = 0;
 
     while ((src[count] != 0U) || (src[count + 1U] != 0U) || ((count % 2U) != 0U))
@@ -352,7 +327,7 @@ usb_status_t USB_DeviceMtpFstat(const usb_device_mtp_dir_handle_t dir, const uin
     return kStatus_USB_Success;
 }
 
-usb_status_t USB_DeviceMtpUtime(const uint16_t *fileName, usb_device_mtp_file_time_stamp_t *timeStamp)
+usb_status_t USB_DeviceMtpUtime(const char *fileName, usb_device_mtp_file_time_stamp_t *timeStamp)
 {
     // struct stat fno;
 
@@ -368,7 +343,7 @@ usb_status_t USB_DeviceMtpUtime(const uint16_t *fileName, usb_device_mtp_file_ti
     return kStatus_USB_Success;
 }
 
-usb_status_t USB_DeviceMtpOpenDir(usb_device_mtp_dir_handle_t *dir, const uint16_t *dirName)
+usb_status_t USB_DeviceMtpOpenDir(usb_device_mtp_dir_handle_t *dir, const char *dirName)
 {
     DIR *dir1;
 
@@ -390,8 +365,6 @@ usb_status_t USB_DeviceMtpOpenDir(usb_device_mtp_dir_handle_t *dir, const uint16
 
     *dir = (usb_device_mtp_dir_handle_t)dir1;
 
-    // USB_DeviceMtpSetDirPath(*dir, dirName);
-
     return kStatus_USB_Success;
 }
 
@@ -406,7 +379,6 @@ usb_status_t USB_DeviceMtpCloseDir(usb_device_mtp_dir_handle_t dir)
 
     dir1 = (DIR *)dir;
 
-    // USB_DeviceMtpSetDirPath(dir, NULL);
 
     if (closedir(dir1) != 0)
     {
@@ -419,7 +391,7 @@ usb_status_t USB_DeviceMtpCloseDir(usb_device_mtp_dir_handle_t dir)
     return kStatus_USB_Success;
 }
 
-usb_status_t USB_DeviceMtpReadDir(usb_device_mtp_dir_handle_t dir, const uint16_t *dirName, usb_device_mtp_file_info_t *fileInfo)
+usb_status_t USB_DeviceMtpReadDir(usb_device_mtp_dir_handle_t dir, const char *dirName, usb_device_mtp_file_info_t *fileInfo)
 {
     DIR *dir1;
     struct dirent *de;
@@ -466,10 +438,10 @@ usb_status_t USB_DeviceMtpReadDir(usb_device_mtp_dir_handle_t dir, const uint16_
         }
     }
 
-    return USB_DeviceMtpFstat(dir1, (const uint16_t *)file_path, fileInfo);
+    return USB_DeviceMtpFstat(dir1, (const char *)file_path, fileInfo);
 }
 
-usb_status_t USB_DeviceMtpMakeDir(const uint16_t *fileName)
+usb_status_t USB_DeviceMtpMakeDir(const char *fileName)
 {
     LOG_INFO("Attempt create dir: %s", (const char *)fileName);
 
@@ -482,7 +454,7 @@ usb_status_t USB_DeviceMtpMakeDir(const uint16_t *fileName)
     return kStatus_USB_Success;
 }
 
-usb_status_t USB_DeviceMtpUnlink(const uint16_t *fileName)
+usb_status_t USB_DeviceMtpUnlink(const char *fileName)
 {
     LOG_INFO("Attempt remove dir: %s", (const char *)fileName);
 
@@ -495,7 +467,7 @@ usb_status_t USB_DeviceMtpUnlink(const uint16_t *fileName)
     return kStatus_USB_Success;
 }
 
-usb_status_t USB_DeviceMtpRename(const uint16_t *oldName, const uint16_t *newName)
+usb_status_t USB_DeviceMtpRename(const char *oldName, const char *newName)
 {
     LOG_INFO("Attempt rename: %s -> %s", (const char *)oldName, (const char *)newName);
 
@@ -508,7 +480,7 @@ usb_status_t USB_DeviceMtpRename(const uint16_t *oldName, const uint16_t *newNam
     return kStatus_USB_Success;
 }
 
-usb_status_t USB_DeviceMtpGetDiskTotalBytes(const uint16_t *path, uint64_t *totalBytes)
+usb_status_t USB_DeviceMtpGetDiskTotalBytes(const char *path, uint64_t *totalBytes)
 {
     struct statvfs stvfs {};
 
@@ -528,7 +500,7 @@ usb_status_t USB_DeviceMtpGetDiskTotalBytes(const uint16_t *path, uint64_t *tota
     return kStatus_USB_Success;
 }
 
-usb_status_t USB_DeviceMtpGetDiskFreeBytes(const uint16_t *path, uint64_t *freeBytes)
+usb_status_t USB_DeviceMtpGetDiskFreeBytes(const char *path, uint64_t *freeBytes)
 {
     struct statvfs stvfs {};
 
@@ -548,7 +520,7 @@ usb_status_t USB_DeviceMtpGetDiskFreeBytes(const uint16_t *path, uint64_t *freeB
     return kStatus_USB_Success;
 }
 
-usb_status_t USB_DeviceMtpFSInit(const uint16_t *path)
+usb_status_t USB_DeviceMtpFSInit(const char *path)
 {
 //     BYTE work[FF_MAX_SS];
 
@@ -566,4 +538,4 @@ usb_status_t USB_DeviceMtpFSInit(const uint16_t *path)
 }
 
 };
- //  extern "C" {
+ //  extern "C"

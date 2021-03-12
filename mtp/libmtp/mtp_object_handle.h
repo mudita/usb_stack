@@ -21,7 +21,7 @@ typedef struct _usb_mtp_obj_handle
     usb_device_mtp_date_union_t dateUnion;
     usb_device_mtp_time_union_t timeUnion;
     uint64_t size;
-    uint16_t name[MTP_NAME_MAX_LEN >> 1U];
+    const char name[MTP_NAME_MAX_LEN_ASCII];
     uint8_t flag;
 } usb_mtp_obj_handle_t;
 
