@@ -389,7 +389,7 @@ static uint32_t USB_DeviceGetRootPath(usb_mtp_struct_t *mtp, uint32_t storageID,
 static usb_status_t USB_DeviceBuildPath(usb_mtp_struct_t *mtp, uint32_t storageID, uint32_t objHandle, char *path)
 {
     usb_status_t result = kStatus_USB_Success;
-    usb_mtp_obj_handle_t objHandleStruct;
+    usb_mtp_obj_handle_t objHandleStruct = {0,};
     uint8_t nameLen;
     uint8_t pathLen;
 
@@ -1204,8 +1204,8 @@ void USB_DeviceCmdGetObjHandles(void *param)
     uint32_t objHandle     = dataInfo->param[2];
     usb_status_t result;
     usb_device_mtp_dir_handle_t dir;
-    usb_device_mtp_file_info_t fInfo;
-    usb_mtp_obj_handle_t objHandleStruct;
+    usb_device_mtp_file_info_t fInfo = {0,};
+    usb_mtp_obj_handle_t objHandleStruct = {0,};
     uint32_t objHandleCount;
     uint32_t j;
     uint8_t i;
@@ -1339,7 +1339,7 @@ void USB_DeviceCmdGetObjHandles(void *param)
                             objHandleStruct.flag |= MTP_OBJECT_DIR;
                         }
 
-                        (void)strcpy(&objHandleStruct.name[0], &fInfo.name[0]);
+                        (void)strcpy(objHandleStruct.name, fInfo.name);
 
                         result = USB_DeviceMtpObjHandleWrite(objHandleStruct.handleID, &objHandleStruct);
 
@@ -1613,7 +1613,7 @@ void USB_DeviceCmdGetObjPropList(void *param)
     uint32_t depth                             = dataInfo->param[4];
     uint32_t i;
     uint32_t j;
-    usb_mtp_obj_handle_t objHandleStruct;
+    usb_mtp_obj_handle_t objHandleStruct = {0,};
     uint16_t dataType;
     usb_device_mtp_obj_prop_t *objProp;
     uint32_t objPropCount;
@@ -1736,7 +1736,7 @@ void USB_DeviceCmdGetObjInfo(void *param)
     uint32_t offset                            = USB_DEVICE_MTP_MINIMUM_CONTAINER_LENGTH;
     uint32_t objHandle                         = dataInfo->param[0];
     uint8_t *readBuf                           = (uint8_t *)&g_mtpTransferBuffer[0];
-    usb_mtp_obj_handle_t objHandleStruct;
+    usb_mtp_obj_handle_t objHandleStruct = {0,};
 
     if (dataInfo->curPhase == USB_DEVICE_MTP_PHASE_COMMAND)
     {
@@ -1791,7 +1791,7 @@ void USB_DeviceCmdGetObj(void *param)
     uint32_t offset;
     uint32_t objHandle = dataInfo->param[0];
     uint8_t *readBuf   = (uint8_t *)&g_mtpTransferBuffer[0];
-    usb_mtp_obj_handle_t objHandleStruct;
+    usb_mtp_obj_handle_t objHandleStruct = {0,};
     uint32_t sizeRead;
     usb_status_t result;
 
@@ -1875,7 +1875,7 @@ void USB_DeviceCmdSendObjInfo(void *param)
     uint32_t storageID                         = dataInfo->param[0];
     uint32_t objHandle                         = dataInfo->param[1];
     uint8_t *writeBuf;
-    usb_mtp_obj_handle_t objHandleStruct;
+    usb_mtp_obj_handle_t objHandleStruct = {0,};
     uint32_t objFormat;
     uint32_t objSize;
     uint64_t freeBytes;
@@ -2182,7 +2182,7 @@ void USB_DeviceCmdDeleteObj(void *param)
 {
     usb_device_mtp_cmd_data_struct_t *dataInfo = (usb_device_mtp_cmd_data_struct_t *)param;
     uint32_t objHandle                         = dataInfo->param[0];
-    usb_mtp_obj_handle_t objHandleStruct;
+    usb_mtp_obj_handle_t objHandleStruct = {0,};
     usb_status_t result = kStatus_USB_Success;
     uint32_t i;
 
@@ -2380,7 +2380,7 @@ void USB_DeviceCmdGetObjPropVal(void *param)
     uint8_t *readBuf                           = (uint8_t *)&g_mtpTransferBuffer[0];
     uint32_t i;
     uint32_t j;
-    usb_mtp_obj_handle_t objHandleStruct;
+    usb_mtp_obj_handle_t objHandleStruct = {0,};
     usb_device_mtp_obj_prop_t *prop;
 
     if (dataInfo->curPhase == USB_DEVICE_MTP_PHASE_COMMAND)
@@ -2441,7 +2441,7 @@ void USB_DeviceCmdSetObjPropVal(void *param)
     uint32_t i;
     uint32_t j;
     uint32_t size;
-    usb_mtp_obj_handle_t objHandleStruct;
+    usb_mtp_obj_handle_t objHandleStruct = {0,};
     char renameBuffer[MTP_PATH_MAX_LEN >> 1U];
     usb_status_t result;
     usb_device_mtp_obj_prop_t *prop;
@@ -2559,7 +2559,7 @@ void USB_DeviceCmdGetObjReferences(void *param)
     uint32_t offset                            = USB_DEVICE_MTP_MINIMUM_CONTAINER_LENGTH;
     uint32_t objHandle                         = dataInfo->param[0];
     uint8_t *readBuf                           = (uint8_t *)&g_mtpTransferBuffer[0];
-    usb_mtp_obj_handle_t objHandleStruct;
+    usb_mtp_obj_handle_t objHandleStruct = {0,};
 
     if (dataInfo->curPhase == USB_DEVICE_MTP_PHASE_COMMAND)
     {
@@ -2591,7 +2591,7 @@ void USB_DeviceCmdMoveObj(void *param)
     uint32_t objHandle                         = dataInfo->param[0];
     uint32_t storageID                         = dataInfo->param[1];
     uint32_t newParentObj                      = dataInfo->param[2];
-    usb_mtp_obj_handle_t objHandleStruct;
+    usb_mtp_obj_handle_t objHandleStruct = {0,};
     char destPath[MTP_PATH_MAX_LEN >> 1U];
     usb_status_t result;
     uint8_t i;
@@ -2673,7 +2673,7 @@ void USB_DeviceCmdCopyObj(void *param)
     uint32_t objHandle                         = dataInfo->param[0];
     uint32_t storageID                         = dataInfo->param[1];
     uint32_t newParentObj                      = dataInfo->param[2];
-    usb_mtp_obj_handle_t objHandleStruct;
+    usb_mtp_obj_handle_t objHandleStruct = {0,};
     char destPath[MTP_PATH_MAX_LEN >> 1U];
     char srcPath[MTP_PATH_MAX_LEN >> 1U];
     usb_device_mtp_file_info_t fno;

@@ -238,12 +238,12 @@ usb_device_mtp_obj_prop_list_t g_ObjPropList = {
 
 /* 2-byte unicode */
 USB_DMA_INIT_DATA_ALIGN(2U)
-const char g_StorageRootPath[][MTP_PATH_MAX_LEN >> 1U] = {
+const char g_StorageRootPath[MTP_STORAGE_COUNT][MTP_PATH_MAX_LEN_ASCII] = {
     {"/sys/user/music"},
-    {"/sys/user/backup"}
+    // {"/sys/user/backup"}
 };
 
-usb_device_mtp_storage_info_t g_StorageInfo[] = {
+usb_device_mtp_storage_info_t g_StorageInfo[MTP_STORAGE_COUNT] = {
     {
         .rootPath         = &g_StorageRootPath[0][0], /* 2-byte unicode */
         .storageDesc      = "Music",               /* ascll code, will convert to unicode when host gets this field. */
@@ -254,16 +254,16 @@ usb_device_mtp_storage_info_t g_StorageInfo[] = {
         .accessCapability = MTP_STORAGE_READ_WRITE,
         .flag             = 0U,
     },
-    {
-        .rootPath         = &g_StorageRootPath[1][0], /* 2-byte unicode */
-        .storageDesc      = "Backup",              /* ascll code, will convert to unicode when host gets this field. */
-        .volumeID         = NULL,                  /* ascll code, will convert to unicode when host gets this field. */
-        .storageID        = 0x00010002U,           /* should ensure its uniqueness. */
-        .storageType      = MTP_STORAGE_FIXED_ROM,
-        .fileSystemType   = MTP_STORAGE_FILESYSTEM_GENERIC_FLAT,
-        .accessCapability = MTP_STORAGE_READ_ONLY_WITHOUT_DELETE,
-        .flag             = 0U,
-    }
+    // {
+    //     .rootPath         = &g_StorageRootPath[1][0], /* 2-byte unicode */
+    //     .storageDesc      = "Backup",              /* ascll code, will convert to unicode when host gets this field. */
+    //     .volumeID         = NULL,                  /* ascll code, will convert to unicode when host gets this field. */
+    //     .storageID        = 0x00010002U,           /* should ensure its uniqueness. */
+    //     .storageType      = MTP_STORAGE_FIXED_ROM,
+    //     .fileSystemType   = MTP_STORAGE_FILESYSTEM_GENERIC_FLAT,
+    //     .accessCapability = MTP_STORAGE_READ_ONLY_WITHOUT_DELETE,
+    //     .flag             = 0U,
+    // }
 };
 
 usb_device_mtp_storage_list_t g_StorageList = {
@@ -283,7 +283,7 @@ usb_mtp_struct_t g_mtp;
 
 /* The buffer is used to build path, please make sure the buffer have enough space to accommodate the longest path.
    If the path length exceeds MTP_PATH_MAX_LEN, the current transaction will end with a failure. */
-USB_DMA_NONINIT_DATA_ALIGN(2U) const char g_pathBuffer[MTP_PATH_MAX_LEN_ASCII];
+USB_DMA_NONINIT_DATA_ALIGN(2U) char g_pathBuffer[MTP_PATH_MAX_LEN_ASCII];
 USB_DMA_NONINIT_DATA_ALIGN(USB_DATA_ALIGN_SIZE) uint32_t g_mtpTransferBuffer[USB_DEVICE_MTP_TRANSFER_BUFF_SIZE >> 2];
 /*******************************************************************************
  * Code
