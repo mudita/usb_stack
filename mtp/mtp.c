@@ -33,6 +33,9 @@ USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE) uint8_t tx_buffer[HS_M
 USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE) uint8_t event_response[HS_MTP_INTR_IN_PACKET_SIZE];
 USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE) static uint8_t mtp_request[sizeof(rx_buffer)];
 USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE) static uint8_t mtp_response[sizeof(tx_buffer)];
+USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE) static char mtpRootPath[256];
+
+#define USER_ROOT "/sys/user/music"
 
 static mtp_device_info_t dummy_device = {
     .manufacturer = "Mudita",
@@ -174,15 +177,11 @@ static usb_status_t OnIncomingFrame(usb_mtp_struct_t* mtpApp, void *param)
     return kStatus_USB_Success;
 }
 
-
 static usb_status_t OnOutgoingFrameSent(usb_mtp_struct_t* mtpApp, void *param)
 {
-    //usb_device_endpoint_callback_message_struct_t *epCbParam = (usb_device_endpoint_callback_message_struct_t*) param;
-
     if (mtpApp->configured) {
         PRINTF("[MTP] already sent");
         size_t length = xMessageBufferReceiveFromISR(mtpApp->outputBox, tx_buffer, sizeof(tx_buffer), NULL);
-        PRINTF("[MTP] TX: %d, queued: %d", (int)epCbParam->length, length);
         if (length && USB_DeviceClassMtpSend(mtpApp->classHandle, USB_MTP_BULK_IN_ENDPOINT, tx_buffer, length) != kStatus_USB_Success) {
             PRINTF("[MTP] Dropped outgoing bytes: 0x%d:", (int)length);
             return kStatus_USB_Error;
@@ -270,7 +269,7 @@ static void MtpTask(void *handle)
     usb_mtp_struct_t* mtpApp = (usb_mtp_struct_t*)handle;
     mtp_responder_t* responder;
 
-    if (!(mtpApp->mtp_fs = mtp_fs_alloc(NULL))) {
+    if (!(mtpApp->mtp_fs = mtp_fs_alloc(mtpRootPath))) {
         PRINTF("[MTP] MTP FS initialization failed!");
         return;
     }
@@ -378,7 +377,7 @@ static void MtpTask(void *handle)
 
 usb_status_t MtpInit(usb_mtp_struct_t *mtpApp, class_handle_t classHandle)
 {
-    mtpApp->configured = 0;
+    mtpApp->configured = false;
     mtpApp->is_terminated = false;
     mtpApp->classHandle = classHandle;
 
@@ -400,6 +399,12 @@ usb_status_t MtpInit(usb_mtp_struct_t *mtpApp, class_handle_t classHandle)
         return kStatus_USB_AllocFail;
     }
 
+    // Set initial root path to user files
+    if (mtpRootPath[0] == '\0')
+    {
+        strcpy(mtpRootPath, USER_ROOT);
+    }
+
     if (xTaskCreate(MtpTask,                  /* pointer to the task */
                     "mtp task",               /* task name for kernel awareness debugging */
                     3072 / sizeof(portSTACK_TYPE), /* task stack size */
@@ -411,7 +416,7 @@ usb_status_t MtpInit(usb_mtp_struct_t *mtpApp, class_handle_t classHandle)
         PRINTF("[MTP] Create task failed");
         return kStatus_USB_AllocFail;
     }
-   return kStatus_USB_Success;
+    return kStatus_USB_Success;
 }
 
 void MtpDeinit(usb_mtp_struct_t *mtpApp)
@@ -428,10 +433,38 @@ void MtpDeinit(usb_mtp_struct_t *mtpApp)
         mtpApp->outputBox = NULL;
         mtpApp->outputBox = NULL;
         mtpApp->join = NULL;
+        mtpRootPath[0] = '\0';
         PRINTF("[MTP] Deinitialized");
     } else {
         PRINTF("[MTP] Mtp Deinit failed. Unable to join thread");
     }
+}
+
+usb_status_t MtpReinit(usb_mtp_struct_t *mtpApp, class_handle_t classHandle, const char *mtpRoot)
+{
+    usb_status_t status;
+
+    MtpDeinit(mtpApp);
+
+    // Reinitialization path is just for Backup over MTP
+    // We switch MTP path to point to Backup folder
+    if (mtpRoot)
+    {
+        strcpy(mtpRootPath, mtpRoot);
+    }
+
+    status = MtpInit(mtpApp, classHandle);
+
+    if (status == kStatus_USB_Success)
+    {
+        PRINTF("[MTP] Reinitialized");
+    }
+    else
+    {
+        PRINTF("[MTP] Reinitialize failed");
+    }
+
+    return status;
 }
 
 void MtpReset(usb_mtp_struct_t *mtpApp, uint8_t speed)
@@ -453,4 +486,5 @@ void MtpDetached(usb_mtp_struct_t *mtpApp)
     PRINTF("[MTP] MTP detached");
     mtpApp->configured = false;
     mtpApp->in_reset = true;
+    strcpy(mtpRootPath, USER_ROOT);
 }

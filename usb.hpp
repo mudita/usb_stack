@@ -30,6 +30,7 @@ namespace bsp
     int usbCDCSendRaw(const char *dataPtr, size_t dataLen);
     void usbDeviceTask(void *);
     void usbDeinit();
+    void usbReinit(const char *mtpRoot);
 
     /* Callback fired on low level events */
     void usbDeviceStateCB(void *, vcomEvent event);

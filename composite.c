@@ -327,3 +327,23 @@ void composite_deinit(usb_device_composite_struct_t *composite)
     }
     USB_DeviceClockDeinit();
 }
+
+void composite_reinit(usb_device_composite_struct_t *composite, const char *mtpRoot)
+{
+    usb_status_t err;
+    if ((err = USB_DeviceStop(composite->deviceHandle)) != kStatus_USB_Success) {
+        LOG_ERROR("[Composite] Device stop failed: 0x%x", err);
+    }
+
+    USB_DeviceSetIsr(false);
+
+    if ((err = MtpReinit(&composite->mtpApp, g_CompositeClassConfig[0].classHandle, mtpRoot)) != kStatus_USB_Success) {
+        LOG_ERROR("[Composite] MTP reinit failed: 0x%x", err);
+    }
+
+    USB_DeviceSetIsr(true);
+
+    if (USB_DeviceRun(composite->deviceHandle) != kStatus_USB_Success) {
+        LOG_ERROR("[Composite] USB Device run failed: 0x%x", err);
+    }
+}

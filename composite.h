@@ -39,6 +39,7 @@ typedef struct _usb_device_composite_struct
 
 usb_device_composite_struct_t *composite_init(userCbFunc callback, void *userArg);
 void composite_deinit(usb_device_composite_struct_t *composite);
+void composite_reinit(usb_device_composite_struct_t *composite, const char *mtpRoot);
 
 #if (defined(USB_DEVICE_CONFIG_CHARGER_DETECT) && (USB_DEVICE_CONFIG_CHARGER_DETECT > 0U)) && \
     (defined(FSL_FEATURE_SOC_USB_ANALOG_COUNT) && (FSL_FEATURE_SOC_USB_ANALOG_COUNT > 0U))

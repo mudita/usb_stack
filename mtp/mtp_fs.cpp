@@ -27,8 +27,6 @@ extern "C" {
 #define LOG(...)
 #endif
 
-#define ROOT "/sys/user/music"
-
 static mtp_storage_properties_t disk_properties =  {
     .type = MTP_STORAGE_FIXED_RAM,
     .fs_type = MTP_STORAGE_FILESYSTEM_FLAT,
@@ -38,11 +36,6 @@ static mtp_storage_properties_t disk_properties =  {
     .volume_id = "1234567890abcdef",
 };
 
-struct mtp_fs {
-    struct mtp_db *db;
-    DIR* find_data;
-    std::FILE* file;
-};
 
 typedef struct {
     uint32_t read;
@@ -71,12 +64,12 @@ static uint32_t count_files(DIR * find_data)
     return count;
 }
 
-static const char *abspath(const char *filename)
+static const char *abspath(const char *rootPath, const char *filename)
 {
     static char abs[128];
     abs[0] = '/';
     strncpy(&abs[1], filename, 64);
-    snprintf(abs, 128, "%s/%s", ROOT, filename);
+    snprintf(abs, 128, "%s/%s", rootPath, filename);
     return abs;
 }
 
@@ -124,7 +117,7 @@ static uint32_t fs_find_first(void *arg, uint32_t root, uint32_t *count)
     if (root != 0 && root != 0xFFFFFFFF)
         return 0;
 
-    fs->find_data = opendir(ROOT);
+    fs->find_data = opendir(fs->ROOT);
     if(!fs->find_data)
     {
         LOG("Opendir failed");
@@ -191,7 +184,7 @@ static int fs_stat(void *arg, uint32_t handle, mtp_object_info_t *info)
 
     LOG("[%u]: Get info for: %s", (unsigned int)handle, filename);
 
-    if (stat(abspath(filename), &statbuf)==0) {
+    if (stat(abspath(fs->ROOT, filename), &statbuf)==0) {
         memset(info, 0, sizeof(mtp_object_info_t));
         info->storage_id = 0x00010001;
         info->created = 1580371617;
@@ -237,7 +230,7 @@ static int fs_create(void *arg, const mtp_object_info_t *info, uint32_t *handle)
         LOG("Map is full. Can't create: %s", info->filename);
         return -1;
     }
-    fs->file = std::fopen(abspath(info->filename), "w");
+    fs->file = std::fopen(abspath(fs->ROOT, info->filename), "w");
     if(!fs->file) {
         LOG("[]: freertos-fat error - ff_open(w) (create). Flush and wait");
         return -1;
@@ -256,7 +249,7 @@ static int fs_remove(void *arg, uint32_t handle)
     if (!filename) {
         return -1;
     }
-    unlink(abspath(filename));
+    unlink(abspath(fs->ROOT, filename));
 
     LOG("[%u]: Removed: %s", (unsigned int)handle, filename);
     mtp_db_del(fs->db, handle);
@@ -270,7 +263,7 @@ static int fs_open(void *arg, uint32_t handle, const char *mode)
     if (!filename) {
         return -1;
     }
-    fs->file = std::fopen(abspath(filename), mode);
+    fs->file = std::fopen(abspath(fs->ROOT, filename), mode);
     if(!fs->file) {
         LOG("[%u]: Fail to open: %s [%s]. Flush and wait", (unsigned int)handle, filename, mode);
         // TODO: FF_SDDiskFlush(fs->disk);
@@ -333,7 +326,7 @@ extern "C" const struct mtp_storage_api simple_fs_api =
     .close = fs_close
 };
 
-extern "C" struct mtp_fs* mtp_fs_alloc(void *disk)
+extern "C" struct mtp_fs* mtp_fs_alloc(void *mtpRootPath)
 {
     struct mtp_fs* fs = (struct mtp_fs*)malloc(sizeof(struct mtp_fs));
     if (fs) {
@@ -344,8 +337,10 @@ extern "C" struct mtp_fs* mtp_fs_alloc(void *disk)
             return NULL;
         }
 
-        fs->find_data = opendir(ROOT);
+        fs->ROOT = (const char *)mtpRootPath;
+        LOG("[] Initializing MTP root at %s", fs->ROOT);
 
+        fs->find_data = opendir(fs->ROOT);
         if (!fs->find_data) {
             mtp_fs_free(fs);
             return NULL;
