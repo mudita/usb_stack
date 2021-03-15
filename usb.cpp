@@ -87,6 +87,17 @@ namespace bsp
         composite_deinit(usbDeviceComposite);
     }
 
+    void usbReinit(const char *mtpRoot)
+    {
+        LOG_INFO("usbReinit");
+        if (!mtpRoot || (mtpRoot[0] == '\0'))
+        {
+           LOG_ERROR("Attempted USB reinit with empty MTP path");
+           return;
+        }
+        composite_reinit(usbDeviceComposite, mtpRoot);
+    }
+
     void usbDeviceTask(void *handle)
     {
         USBDeviceListener *deviceListener = static_cast<USBDeviceListener *>(handle);
