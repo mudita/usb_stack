@@ -334,16 +334,16 @@ extern "C" const struct mtp_storage_api simple_fs_api =
 
 extern "C" struct mtp_fs* mtp_fs_alloc(void *disk)
 {
-    struct mtp_fs* fs = (struct mtp_fs*)pvPortMalloc(sizeof(struct mtp_fs));
+    struct mtp_fs* fs = (struct mtp_fs*)malloc(sizeof(struct mtp_fs));
     if (fs) {
         memset(fs, 0, sizeof(struct mtp_fs));
         if (!(fs->db = mtp_db_alloc())) {
-            vPortFree(fs);
+            free(fs);
             return NULL;
         }
         fs->find_data = opendir(ROOT);
         if (!fs->find_data) {
-            vPortFree(fs);
+            free(fs);
             return NULL;
         }
     }
@@ -353,5 +353,5 @@ extern "C" struct mtp_fs* mtp_fs_alloc(void *disk)
 extern "C" void mtp_fs_free(struct mtp_fs *fs)
 {
     mtp_db_free(fs->db);
-    vPortFree(fs);
+    free(fs);
 }
