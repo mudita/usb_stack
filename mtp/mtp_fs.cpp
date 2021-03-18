@@ -18,6 +18,7 @@
 extern "C" {
 #   include "mtp_responder.h"
 #   include "mtp_db.h"
+#   include "mtp_fs.h"
 }
 
 #if 0
@@ -337,13 +338,16 @@ extern "C" struct mtp_fs* mtp_fs_alloc(void *disk)
     struct mtp_fs* fs = (struct mtp_fs*)malloc(sizeof(struct mtp_fs));
     if (fs) {
         memset(fs, 0, sizeof(struct mtp_fs));
+
         if (!(fs->db = mtp_db_alloc())) {
             free(fs);
             return NULL;
         }
+
         fs->find_data = opendir(ROOT);
+
         if (!fs->find_data) {
-            free(fs);
+            mtp_fs_free(fs);
             return NULL;
         }
     }
