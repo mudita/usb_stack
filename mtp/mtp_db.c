@@ -45,14 +45,14 @@ static handle_t db_alloc(struct mtp_db *db)
 static void db_free(struct mtp_db *db, handle_t handle)
 {
     db->map[handle][0] = '\0';
-    db->count++;
+    db->count--;
 }
 
 static handle_t db_search(struct mtp_db *db, const char *key)
 {
     handle_t i;
     for(i = db->highest; i > 1; i--)  {
-        if (!strncmp(db->map[i], key, 64))
+        if (!strncmp(db->map[i], key, MAX_FILENAME_LENGTH))
             return i;
     }
     return NO_HANDLE;
@@ -63,7 +63,10 @@ struct mtp_db* mtp_db_alloc(void)
     struct mtp_db *db = malloc(sizeof(struct mtp_db));
     if (!db) {
         LOG("Not enough memory!\n");
+        return NULL;
     }
+    memset(db, 0, sizeof(struct mtp_db));
+
     return db;
 }
 
@@ -83,7 +86,7 @@ uint32_t mtp_db_add(struct mtp_db *db, const char *key)
 
     handle = db_alloc(db);
     if (handle) {
-        strncpy(db->map[handle], key, 64);
+        strncpy(db->map[handle], key, MAX_FILENAME_LENGTH);
         LOG("add [%u]: %s\n", (unsigned int)handle, db->map[handle]);
         return handle;
     }
