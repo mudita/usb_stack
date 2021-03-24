@@ -370,7 +370,10 @@ static void MtpTask(void *handle)
         }
     }
     mtp_fs_free(mtpApp->mtp_fs);
-    xSemaphoreGive(mtpApp->join);
+    if (mtpApp->join)
+    {
+        xSemaphoreGive(mtpApp->join);
+    }
     PRINTF("[MTP] Task terminated");
     vTaskDelete(NULL);
 }
@@ -423,21 +426,32 @@ void MtpDeinit(usb_mtp_struct_t *mtpApp)
 {
     mtpApp->in_reset = true;
     mtpApp->is_terminated = true;
-    /* wait max 2 sec to terminate mtp thread */
-    if (xSemaphoreTake(mtpApp->join, 2000/portTICK_PERIOD_MS) == pdTRUE) {
-        mtp_responder_free(mtpApp->responder);
-        vStreamBufferDelete(mtpApp->outputBox);
-        vStreamBufferDelete(mtpApp->inputBox);
-        vSemaphoreDelete(mtpApp->join);
-        mtpApp->responder = NULL;
-        mtpApp->outputBox = NULL;
-        mtpApp->outputBox = NULL;
-        mtpApp->join = NULL;
-        mtpRootPath[0] = '\0';
-        PRINTF("[MTP] Deinitialized");
-    } else {
-        PRINTF("[MTP] Mtp Deinit failed. Unable to join thread");
+
+    if (!mtpApp->configured)
+    {
+        /* If MTP was never attached to the host,
+           pretend it's configured and a poke the task */
+        mtpApp->configured = true;
+        xSemaphoreGive(mtpApp->join);
     }
+
+    /* wait max 10 msec to terminate MTP task */
+    if (!xSemaphoreTake(mtpApp->join, 10/portTICK_PERIOD_MS))
+    {
+        PRINTF("[MTP] Unable to join MTP thread");
+    }
+
+    mtp_responder_free(mtpApp->responder);
+    vStreamBufferDelete(mtpApp->outputBox);
+    vStreamBufferDelete(mtpApp->inputBox);
+    vSemaphoreDelete(mtpApp->join);
+    mtpApp->responder = NULL;
+    mtpApp->outputBox = NULL;
+    mtpApp->outputBox = NULL;
+    mtpApp->join = NULL;
+    mtpRootPath[0] = '\0';
+    PRINTF("[MTP] Deinitialized");
+
 }
 
 usb_status_t MtpReinit(usb_mtp_struct_t *mtpApp, class_handle_t classHandle, const char *mtpRoot)

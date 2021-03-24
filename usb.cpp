@@ -85,6 +85,7 @@ namespace bsp
     {
         LOG_INFO("usbDeinit");
         composite_deinit(usbDeviceComposite);
+        vTaskDelete(bsp::usbTaskHandle);
     }
 
     void usbReinit(const char *mtpRoot)
