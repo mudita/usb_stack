@@ -99,6 +99,12 @@ namespace bsp
         composite_reinit(usbDeviceComposite, mtpRoot);
     }
 
+    void usbSuspend()
+    {
+    	LOG_INFO("usbSuspend");
+    	composite_suspend(usbDeviceComposite);
+    }
+
     void usbDeviceTask(void *handle)
     {
         USBDeviceListener *deviceListener = static_cast<USBDeviceListener *>(handle);

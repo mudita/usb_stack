@@ -309,6 +309,11 @@ usb_device_composite_struct_t* composite_init(userCbFunc callback, void* userArg
         LOG_ERROR("[Composite] USB Device run failed");
     }
 
+    // susspend bus if session end for USB OTG (VDD5V is not present)
+    if (USB_ANALOG_VBUS_DETECT_STAT_SESSEND(USB_ANALOG->INSTANCE[0].VBUS_DETECT_STAT)) {
+    	composite_suspend(&composite);
+    }
+
     LOG_DEBUG("[Composite] USB initialized");
     return &composite;
 }
@@ -346,4 +351,12 @@ void composite_reinit(usb_device_composite_struct_t *composite, const char *mtpR
     if (USB_DeviceRun(composite->deviceHandle) != kStatus_USB_Success) {
         LOG_ERROR("[Composite] USB Device run failed: 0x%x", err);
     }
+}
+
+void composite_suspend(usb_device_composite_struct_t *composite)
+{
+	usb_status_t err;
+	if ((err = USB_DeviceSetStatus(composite->deviceHandle, kUSB_DeviceStatusBusSuspend, NULL)) != kStatus_USB_Success) {
+		LOG_ERROR("[Composite] Device suspend failed: 0x%x", err);
+	}
 }
