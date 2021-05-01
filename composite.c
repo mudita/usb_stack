@@ -122,20 +122,7 @@ extern void USB_ChargerDetectedCB(uint8_t detectionState);
 
 static void charger_detected_callback(uint8_t type)
 {
-    switch (type)
-    {
-        case kUSB_DcdSDP:
-            LOG_DEBUG("SDP detected. Max current is 500mA\r\n");
-            break;
-        case kUSB_DcdCDP:
-            LOG_DEBUG("CDP detected. Max current is 1500mA\r\n");
-            break;
-        case kUSB_DcdDCP:
-            LOG_DEBUG("DCP detected. Max current is 1500mA\r\n");
-            break;
-        default:
-            LOG_DEBUG("Unknown charger type. Max current is 500mA\r\n");
-    }
+    LOG_DEBUG("Detected charger type: %d\n", type);
 
     USB_ChargerDetectedCB(type);
 }
