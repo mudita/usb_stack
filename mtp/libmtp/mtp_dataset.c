@@ -283,7 +283,8 @@ bool is_format_code_supported(uint16_t format_code)
         return true;
 
     for (i = 0; i < sizeof(MTP_SUPPORTED_PLAYBACK_FORMATS)/sizeof(uint16_t); i++)
-        if (MTP_SUPPORTED_PLAYBACK_FORMATS[i] == format_code)
+        if (MTP_SUPPORTED_PLAYBACK_FORMATS[i] == format_code ||
+            MTP_SUPPORTED_PLAYBACK_FORMATS[i] == MTP_FORMAT_UNDEFINED)
             return true;
     return false;
 }
