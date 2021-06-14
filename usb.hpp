@@ -16,7 +16,6 @@ extern "C"
 
 #include <errno.h>
 #include <iostream>
-#include <log/log.hpp>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>

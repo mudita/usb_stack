@@ -4,6 +4,7 @@
  * Proprietary and confidential
  */
 #include <mutex.hpp>
+#include <log/log.hpp>
 #include "usb.hpp"
 
 extern "C"
