@@ -59,12 +59,24 @@ namespace bsp
     constexpr inline auto usbCDCEchoOffCmdLength = usbCDCEchoOffCmd.length();
 #endif
 
-    int usbInit(xQueueHandle queueHandle, xQueueHandle irqQueueHandle, USBDeviceListener *deviceListener)
+    int usbInit(const bsp::usbInitParams &initParams)
     {
+        if (!(initParams.queueHandle &&
+              initParams.irqQueueHandle &&
+              initParams.deviceListener &&
+              initParams.serialNumber)) {
+            LOG_ERROR("Invalid argument(s): 0x%p/0x%p/0x%p/0x%p",
+                initParams.queueHandle,
+                initParams.irqQueueHandle,
+                initParams.deviceListener,
+                initParams.serialNumber);
+            return -1;
+        }
+
         BaseType_t xReturned = xTaskCreate(reinterpret_cast<TaskFunction_t>(&bsp::usbDeviceTask),
                                            "bsp::usbDeviceTask",
                                            8192L / sizeof(portSTACK_TYPE),
-                                           deviceListener, 2,
+                                           initParams.deviceListener, 2,
                                            &bsp::usbTaskHandle);
 
         if (xReturned == pdPASS) {
@@ -74,9 +86,10 @@ namespace bsp
             return -1;
         }
 
-        USBReceiveQueue                = queueHandle;
-        USBIrqQueue                    = irqQueueHandle;
-        usbDeviceComposite = composite_init(usbDeviceStateCB, NULL);
+        USBReceiveQueue                = initParams.queueHandle;
+        USBIrqQueue                    = initParams.irqQueueHandle;
+
+        usbDeviceComposite = composite_init(usbDeviceStateCB, (void*)initParams.serialNumber);
 
         return (usbDeviceComposite == NULL) ? -1 : 0;
     }

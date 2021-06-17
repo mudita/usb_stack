@@ -39,6 +39,15 @@ typedef enum {
  */
 uint16_t USB_StringDescriptor(void* buffer, uint8_t id);
 
+/*
+ * @brief Returns USB string descriptor for id
+ * @param buffer for descritor's binary data
+ * @param id of string to be put in descritor
+ * @return length of descriptor's binary data or 0
+ *         for non-existing string
+ */
+uint16_t USB_DeviceSetStringDescriptor(uint8_t id, const char *ascii);
+
 /**/
 extern uint8_t USB_StringDescriptorBuffer[];
 #endif /*_USB_STRING_DESCRIPTOR_H */

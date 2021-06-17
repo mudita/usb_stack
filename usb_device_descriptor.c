@@ -609,3 +609,8 @@ usb_status_t USB_DeviceSetSpeed(usb_device_handle handle, uint8_t speed)
 
     return kStatus_USB_Success;
 }
+
+uint16_t USB_DeviceSetSerialNumberString(const char *serialNumberAscii)
+{
+    return USB_DeviceSetStringDescriptor(USB_STRING_SERIAL_NUMBER, serialNumberAscii);
+}

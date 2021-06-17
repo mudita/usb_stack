@@ -262,10 +262,15 @@ usb_device_composite_struct_t* composite_init(userCbFunc callback, void* userArg
         LOG_ERROR("[Composite] USB Device Clock init failed");
     }
 
-    composite.speed = USB_SPEED_FULL;
-    composite.attach = 0;
-    composite.cdcVcom.cdcAcmHandle = (class_handle_t)NULL;
-    composite.deviceHandle = NULL;
+    composite.speed                 = USB_SPEED_FULL;
+    composite.attach                = 0;
+    composite.cdcVcom.cdcAcmHandle  = (class_handle_t)NULL;
+    composite.deviceHandle          = NULL;
+    const char *serialNumberAscii   = (const char *)userArg;
+
+    if (serialNumberAscii && serialNumberAscii[0]) {
+        USB_DeviceSetSerialNumberString(serialNumberAscii);
+    }
 
     PMU->REG_3P0 |= PMU_REG_3P0_ENABLE_ILIMIT(1);
     PMU->REG_3P0 |= PMU_REG_3P0_ENABLE_LINREG(1);
