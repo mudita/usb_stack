@@ -223,4 +223,16 @@ usb_status_t USB_DeviceGetConfigurationDescriptor(
 usb_status_t USB_DeviceGetStringDescriptor(usb_device_handle handle,
                                            usb_device_get_string_descriptor_struct_t *stringDescriptor);
 
+/*!
+ * @brief USB device set serial number string descriptor function.
+ *
+ * This function sets the serial number string returned in the
+ * descriptor of the USB device.
+ *
+ * @param serialNumberAscii Pointer to the ASCII string.
+ *
+ * @return A USB error code or kStatus_USB_Success.
+ */
+uint16_t USB_DeviceSetSerialNumberString(const char *serialNumberAscii);
+
 #endif /* _USB_DEVICE_DESCRIPTOR_H_ */
