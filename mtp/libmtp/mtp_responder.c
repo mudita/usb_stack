@@ -16,14 +16,8 @@
 #include "mtp_dataset.h"
 #include "mtp_util.h"
 
-#if 0
-#   include <stdio.h>
-#   define log_info(format, ...) printf(format"\n", __VA_ARGS__)
-#   define log_error(format,...) printf(format"\n", __VA_ARGS__)
-#else
 #   define log_info(...) while(0) {}
 #   define log_error(...) while(0) {}
-#endif
 
 struct mtp_responder
 {
