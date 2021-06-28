@@ -164,7 +164,7 @@ namespace bsp
                 else if (uxQueueSpacesAvailable(USBReceiveQueue) != 0) {
                     std::string *receiveMessage = new std::string(usbSerialBuffer, dataReceivedLength);
                     if (xQueueSend(USBReceiveQueue, &receiveMessage, portMAX_DELAY) == errQUEUE_FULL) {
-                        LOG_ERROR("usbDeviceTask can't send data [%s] to receiveQueue", receiveMessage->c_str());
+                        LOG_ERROR("usbDeviceTask can't send data to receiveQueue");
                     }
                 }
             }
