@@ -61,10 +61,11 @@ uint16_t USB_StringDescriptor(void* buffer, uint8_t id)
 
 uint16_t USB_DeviceSetStringDescriptor(uint8_t id, const char *ascii)
 {
-    const char *ptr = usb_string(id - 1);
+    char *ptr = usb_string(id - 1);
     if (ptr) {
-        uint8_t len = MIN(strlen(ptr), strlen(ascii));
+        size_t len = MIN(strlen(ptr), strlen(ascii));
         strncpy(ptr, ascii, len);
+        ptr[len] = '\0';
         return len;
     }
 
