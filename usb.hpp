@@ -23,7 +23,7 @@ extern "C"
 
 namespace bsp
 {
-    int usbInit(xQueueHandle queueHandle, USBDeviceListener *deviceListener);
+    int usbInit(const bsp::usbInitParams &initParams);
     int usbCDCReceive(void *buffer);
     int usbCDCSend(std::string *sendMsg);
     int usbCDCSendRaw(const char *dataPtr, size_t dataLen);
