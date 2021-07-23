@@ -64,12 +64,10 @@ namespace bsp
     {
         if (!(initParams.queueHandle &&
               initParams.irqQueueHandle &&
-              initParams.deviceListener &&
               initParams.serialNumber)) {
-            LOG_ERROR("Invalid argument(s): 0x%p/0x%p/0x%p/0x%p",
+            LOG_ERROR("Invalid argument(s): 0x%p/0x%p/0x%p",
                 initParams.queueHandle,
                 initParams.irqQueueHandle,
-                initParams.deviceListener,
                 initParams.serialNumber);
             return -1;
         }
@@ -77,7 +75,7 @@ namespace bsp
         BaseType_t xReturned = xTaskCreate(reinterpret_cast<TaskFunction_t>(&bsp::usbDeviceTask),
                                            "bsp::usbDeviceTask",
                                            8192L / sizeof(portSTACK_TYPE),
-                                           initParams.deviceListener, 2,
+                                           nullptr, 2,
                                            &bsp::usbTaskHandle);
 
         if (xReturned == pdPASS) {
@@ -121,7 +119,6 @@ namespace bsp
 
     void usbDeviceTask(void *handle)
     {
-        USBDeviceListener *deviceListener = static_cast<USBDeviceListener *>(handle);
         uint32_t dataReceivedLength;
 
         vTaskDelay(3000 / portTICK_PERIOD_MS);
@@ -157,11 +154,7 @@ namespace bsp
                 }
 #endif
 
-                if (deviceListener->getRawMode()) {
-                    cpp_freertos::LockGuard lock(mutex);
-                    deviceListener->rawDataReceived(&usbSerialBuffer, dataReceivedLength);
-                }
-                else if (uxQueueSpacesAvailable(USBReceiveQueue) != 0) {
+                if (uxQueueSpacesAvailable(USBReceiveQueue) != 0) {
                     std::string *receiveMessage = new std::string(usbSerialBuffer, dataReceivedLength);
                     if (xQueueSend(USBReceiveQueue, &receiveMessage, portMAX_DELAY) == errQUEUE_FULL) {
                         LOG_ERROR("usbDeviceTask can't send data to receiveQueue");
