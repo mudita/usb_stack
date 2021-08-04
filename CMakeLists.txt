@@ -14,15 +14,6 @@ target_sources(usb_stack
         device/usb_device_class.c
         device/usb_device_dci.c
         device/usb_string_descriptor.c
-        mtp/libmtp/mtp_container.c
-        mtp/libmtp/mtp_dataset.c
-        mtp/libmtp/mtp_responder.c
-        mtp/libmtp/mtp_storage.c
-        mtp/libmtp/mtp_util.c
-        mtp/mtp_db.c
-        mtp/mtp_fs.cpp
-        mtp/mtp.c
-        mtp/usb_device_mtp.c
         phy/usb_phy.c
         usb_device_descriptor.c
         usb.cpp
@@ -46,21 +37,27 @@ target_sources(usb_stack
         device/usb_spec.h
         device/usb_string_descriptor.h
         device/usb.h
-        mtp/libmtp/mtp_container.h
-        mtp/libmtp/mtp_dataset.h
-        mtp/libmtp/mtp_responder.h
-        mtp/libmtp/mtp_storage.h
-        mtp/libmtp/mtp_util.h
-        mtp/mtp_db.h
-        mtp/mtp_fs.h
-        mtp/mtp.h
-        mtp/usb_device_mtp.h
         phy/usb_phy.h
         usb_device_config.h
         usb_device_descriptor.h
         usb_strings.h
         usb.hpp
 )
+
+if (ENABLE_USB_MTP)
+    target_sources(usb_stack
+        PRIVATE
+            mtp/libmtp/mtp_container.c
+            mtp/libmtp/mtp_dataset.c
+            mtp/libmtp/mtp_responder.c
+            mtp/libmtp/mtp_storage.c
+            mtp/libmtp/mtp_util.c
+            mtp/mtp_db.c
+            mtp/mtp_fs.cpp
+            mtp/mtp.c
+            mtp/usb_device_mtp.c
+    )
+endif()
 
 target_include_directories(usb_stack
     PUBLIC
@@ -72,11 +69,19 @@ target_include_directories(usb_stack
             dcd
             device
             device/ehci
-            mtp
-            mtp/libmtp
             phy
         >
 )
+
+if (ENABLE_USB_MTP)
+    target_include_directories(usb_stack
+        PUBLIC
+            $<BUILD_INTERFACE:
+                mtp
+                mtp/libmtp
+            >
+    )
+endif()
 
 target_link_libraries(usb_stack
     PRIVATE

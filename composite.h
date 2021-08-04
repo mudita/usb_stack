@@ -14,7 +14,9 @@
 #include "usb_device_config.h"
 #include "MIMXRT1051_features.h"
 #include "virtual_com.h"
+#if defined (USB_DEVICE_CONFIG_MTP) && (USB_DEVICE_CONFIG_MTP > 0U)
 #include "mtp.h"
+#endif
 
 #define CONTROLLER_ID kUSB_ControllerEhci0
 #define USB_DEVICE_INTERRUPT_PRIORITY (3U)
@@ -27,7 +29,9 @@ typedef struct _usb_device_composite_struct
     #endif
     usb_device_handle deviceHandle; /* USB device handle. */
     usb_cdc_vcom_struct_t cdcVcom;  /* CDC virtual com device structure. */
+#if defined (USB_DEVICE_CONFIG_MTP) && (USB_DEVICE_CONFIG_MTP > 0U)
     usb_mtp_struct_t mtpApp;
+#endif
 
     TaskHandle_t applicationTaskHandle; /* Application task handle. */
     TaskHandle_t deviceTaskHandle;      /* USB device task handle. */

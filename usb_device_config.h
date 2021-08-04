@@ -72,7 +72,9 @@
 /*! @brief DFU instance count */
 #define USB_DEVICE_CONFIG_DFU (0U)
 
-#define USB_DEVICE_CONFIG_MTP (1U)
+#ifndef USB_DEVICE_CONFIG_MTP
+#   define USB_DEVICE_CONFIG_MTP (1U)
+#endif
 /* @} */
 
 /*! @brief Whether device is self power. 1U supported, 0U not supported */
