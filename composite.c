@@ -20,21 +20,30 @@
 #endif
 
 extern usb_device_class_struct_t g_UsbDeviceCdcVcomConfig;
+#if defined (USB_DEVICE_CONFIG_MTP) && (USB_DEVICE_CONFIG_MTP > 0U)
 extern usb_device_class_struct_t g_MtpClass;
+#endif
 
 /* Composite device structure. */
 static usb_device_composite_struct_t composite;
 static usb_status_t USB_DeviceCallback(usb_device_handle handle, uint32_t event, void *param);
 
 /* USB device class information */
-static usb_device_class_config_struct_t g_CompositeClassConfig[2] = {
+static usb_device_class_config_struct_t g_CompositeClassConfig[] = {
+#if defined (USB_DEVICE_CONFIG_MTP) && (USB_DEVICE_CONFIG_MTP > 0U)
     {
         MtpUSBCallback, &composite.mtpApp, (class_handle_t)NULL, &g_MtpClass,
     },
+#endif
     {
         VirtualComUSBCallback, &composite.cdcVcom, (class_handle_t)NULL, &g_UsbDeviceCdcVcomConfig,
     }
 };
+
+#if defined (USB_DEVICE_CONFIG_MTP) && (USB_DEVICE_CONFIG_MTP > 0U)
+static class_handle_t g_MtpClassHandle = (class_handle_t)NULL;
+#endif
+static class_handle_t g_VComClassHandle = (class_handle_t)NULL;
 
 #if (defined(USB_DEVICE_CONFIG_CHARGER_DETECT) && (USB_DEVICE_CONFIG_CHARGER_DETECT > 0U)) && \
     (defined(FSL_FEATURE_SOC_USB_ANALOG_COUNT) && (FSL_FEATURE_SOC_USB_ANALOG_COUNT > 0U))
@@ -149,7 +158,10 @@ static usb_status_t USB_DeviceCallback(usb_device_handle handle, uint32_t event,
             }
 #endif
             VirtualComReset(&composite.cdcVcom, composite.speed);
+
+#if defined (USB_DEVICE_CONFIG_MTP) && (USB_DEVICE_CONFIG_MTP > 0U)
             MtpReset(&composite.mtpApp, composite.speed);
+#endif
         }
         break;
         case kUSB_DeviceEventSetConfiguration:
@@ -238,8 +250,9 @@ static usb_status_t USB_DeviceCallback(usb_device_handle handle, uint32_t event,
 
         case kUSB_DeviceEventDetach:
             VirtualComDetached(&composite.cdcVcom);
+#if defined (USB_DEVICE_CONFIG_MTP) && (USB_DEVICE_CONFIG_MTP > 0U)
             MtpDetached(&composite.mtpApp);
-
+#endif
             break;
         #if (defined(USB_DEVICE_CONFIG_CHARGER_DETECT) && (USB_DEVICE_CONFIG_CHARGER_DETECT > 0U)) && \
             (defined(FSL_FEATURE_SOC_USB_ANALOG_COUNT) && (FSL_FEATURE_SOC_USB_ANALOG_COUNT > 0U))
@@ -287,12 +300,18 @@ usb_device_composite_struct_t* composite_init(userCbFunc callback, void* userArg
     else
     {
         /* TODO: pass event handling function here */
-        if (VirtualComInit(&composite.cdcVcom, g_CompositeClassConfig[1].classHandle, callback, userArg) !=
+#if defined (USB_DEVICE_CONFIG_MTP) && (USB_DEVICE_CONFIG_MTP > 0U)
+        g_MtpClassHandle  = g_CompositeClassConfig[0].classHandle;
+        g_VComClassHandle = g_CompositeClassConfig[1].classHandle;
+
+        if (MtpInit(&composite.mtpApp, g_MtpClassHandle) != kStatus_USB_Success)
+            LOG_ERROR("[Composite] MTP initialization failed");
+#else
+        g_VComClassHandle = g_CompositeClassConfig[0].classHandle;
+#endif
+        if (VirtualComInit(&composite.cdcVcom, g_VComClassHandle, callback, userArg) !=
             kStatus_USB_Success)
             LOG_ERROR("[Composite] VirtualCom initialization failed");
-
-        if (MtpInit(&composite.mtpApp, g_CompositeClassConfig[0].classHandle) != kStatus_USB_Success)
-            LOG_ERROR("[Composite] MTP initialization failed");
     }
 
     USB_DeviceSetIsr(true);
@@ -317,11 +336,17 @@ void composite_deinit(usb_device_composite_struct_t *composite)
         LOG_ERROR("[Composite] Device stop failed: 0x%x", err);
     }
     USB_DeviceSetIsr(false);
+
+#if defined (USB_DEVICE_CONFIG_MTP) && (USB_DEVICE_CONFIG_MTP > 0U)
     MtpDeinit(&composite->mtpApp);
+#endif
+
     VirtualComDeinit(&composite->cdcVcom);
+
     if ((err = USB_DeviceClassDeinit(CONTROLLER_ID)) != kStatus_USB_Success) {
         LOG_ERROR("[Composite] Device class deinit failed: 0x%x", err);
     }
+
     USB_DeviceClockDeinit();
 }
 
@@ -333,11 +358,11 @@ void composite_reinit(usb_device_composite_struct_t *composite, const char *mtpR
     }
 
     USB_DeviceSetIsr(false);
-
-    if ((err = MtpReinit(&composite->mtpApp, g_CompositeClassConfig[0].classHandle, mtpRoot)) != kStatus_USB_Success) {
+#if defined (USB_DEVICE_CONFIG_MTP) && (USB_DEVICE_CONFIG_MTP > 0U)
+    if ((err = MtpReinit(&composite->mtpApp, g_MtpClassHandle, mtpRoot)) != kStatus_USB_Success) {
         LOG_ERROR("[Composite] MTP reinit failed: 0x%x", err);
     }
-
+#endif
     USB_DeviceSetIsr(true);
 
     if (USB_DeviceRun(composite->deviceHandle) != kStatus_USB_Success) {

@@ -15,6 +15,7 @@
 
 #include "usb_device_descriptor.h"
 
+#if defined (USB_DEVICE_CONFIG_MTP) && (USB_DEVICE_CONFIG_MTP > 0U)
 usb_device_endpoint_struct_t g_UsbMtpEndpoints[USB_MTP_ENDPOINT_COUNT] =
 {
     {
@@ -61,6 +62,7 @@ usb_device_class_struct_t g_MtpClass = {
     kUSB_DeviceClassTypeMtp,
     USB_DEVICE_CONFIGURATION_COUNT,
 };
+#endif // #if defined (USB_DEVICE_CONFIG_MTP) && (USB_DEVICE_CONFIG_MTP > 0U)
 
 /* cdc virtual com information */
 /* Define endpoint for communication class */
@@ -172,20 +174,8 @@ uint8_t g_UsbDeviceConfigurationDescriptor[] = {
     USB_DESCRIPTOR_LENGTH_CONFIGURE,
     USB_DESCRIPTOR_TYPE_CONFIGURE,
     /* Total length of data returned for this configuration. */
-    USB_SHORT_GET_LOW(
-        USB_DESCRIPTOR_LENGTH_CONFIGURE +
-        USB_IAD_DESC_SIZE +
-        USB_DESCRIPTOR_LENGTH_INTERFACE + USB_DESCRIPTOR_LENGTH_CDC_HEADER_FUNC + USB_DESCRIPTOR_LENGTH_CDC_CALL_MANAG +
-        USB_DESCRIPTOR_LENGTH_CDC_ABSTRACT + USB_DESCRIPTOR_LENGTH_CDC_UNION_FUNC + USB_DESCRIPTOR_LENGTH_ENDPOINT +
-        USB_DESCRIPTOR_LENGTH_INTERFACE + USB_DESCRIPTOR_LENGTH_ENDPOINT + USB_DESCRIPTOR_LENGTH_ENDPOINT +
-        USB_DESCRIPTOR_LENGTH_INTERFACE + 3*USB_DESCRIPTOR_LENGTH_ENDPOINT), /* MTP */
-    USB_SHORT_GET_HIGH(
-        USB_DESCRIPTOR_LENGTH_CONFIGURE +
-        USB_IAD_DESC_SIZE +
-        USB_DESCRIPTOR_LENGTH_INTERFACE + USB_DESCRIPTOR_LENGTH_CDC_HEADER_FUNC + USB_DESCRIPTOR_LENGTH_CDC_CALL_MANAG +
-        USB_DESCRIPTOR_LENGTH_CDC_ABSTRACT + USB_DESCRIPTOR_LENGTH_CDC_UNION_FUNC + USB_DESCRIPTOR_LENGTH_ENDPOINT +
-        USB_DESCRIPTOR_LENGTH_INTERFACE + USB_DESCRIPTOR_LENGTH_ENDPOINT + USB_DESCRIPTOR_LENGTH_ENDPOINT +
-        USB_DESCRIPTOR_LENGTH_INTERFACE + 3*USB_DESCRIPTOR_LENGTH_ENDPOINT), /* MTP */
+    USB_SHORT_GET_LOW(USB_DECRIPTOR_CONFIGURATION_LENGTH),
+    USB_SHORT_GET_HIGH(USB_DECRIPTOR_CONFIGURATION_LENGTH),
     USB_INTERFACE_COUNT,
     /* Value to use as an argument to the SetConfiguration() request to select this configuration */
     USB_COMPOSITE_CONFIGURE_INDEX,
@@ -200,6 +190,7 @@ uint8_t g_UsbDeviceConfigurationDescriptor[] = {
        fully * operational. Expressed in 2 mA units *  (i.e., 50 = 100 mA).  */
     USB_DEVICE_MAX_POWER,
 
+#if defined (USB_DEVICE_CONFIG_MTP) && (USB_DEVICE_CONFIG_MTP > 0U)
     /***** MTP Device Class *****/
     /* Interface Descriptors */
     USB_DESCRIPTOR_LENGTH_INTERFACE,
@@ -235,6 +226,7 @@ uint8_t g_UsbDeviceConfigurationDescriptor[] = {
         USB_SHORT_GET_LOW(HS_MTP_INTR_IN_PACKET_SIZE),
         USB_SHORT_GET_HIGH(HS_MTP_INTR_IN_PACKET_SIZE),
         FS_MTP_INTR_IN_INTERVAL,
+#endif // #if defined (USB_DEVICE_CONFIG_MTP) && (USB_DEVICE_CONFIG_MTP > 0U)
 
     /* Interface Association Descriptor (IAD) */
     /* Size of this descriptor in bytes */
@@ -476,6 +468,7 @@ usb_status_t USB_DeviceSetSpeed(usb_device_handle handle, uint8_t speed)
                 {
                     USB_SHORT_TO_LITTLE_ENDIAN_ADDRESS(HS_CDC_VCOM_BULK_OUT_PACKET_SIZE, ptr1->endpoint.wMaxPacketSize);
                 }
+#if defined (USB_DEVICE_CONFIG_MTP) && (USB_DEVICE_CONFIG_MTP > 0U)
                 else if ((USB_MTP_BULK_IN_ENDPOINT ==
                           (ptr1->endpoint.bEndpointAddress & USB_ENDPOINT_NUMBER_MASK)) &&
                          ((ptr1->endpoint.bEndpointAddress & USB_DESCRIPTOR_ENDPOINT_ADDRESS_DIRECTION_MASK) ==
@@ -490,6 +483,7 @@ usb_status_t USB_DeviceSetSpeed(usb_device_handle handle, uint8_t speed)
                 {
                     USB_SHORT_TO_LITTLE_ENDIAN_ADDRESS(HS_MTP_BULK_OUT_PACKET_SIZE, ptr1->endpoint.wMaxPacketSize);
                 }
+#endif
                 else
                 {
                 }
@@ -519,6 +513,7 @@ usb_status_t USB_DeviceSetSpeed(usb_device_handle handle, uint8_t speed)
                 {
                     USB_SHORT_TO_LITTLE_ENDIAN_ADDRESS(FS_CDC_VCOM_BULK_OUT_PACKET_SIZE, ptr1->endpoint.wMaxPacketSize);
                 }
+#if defined (USB_DEVICE_CONFIG_MTP) && (USB_DEVICE_CONFIG_MTP > 0U)
                 else if ((USB_MTP_BULK_IN_ENDPOINT ==
                           (ptr1->endpoint.bEndpointAddress & USB_ENDPOINT_NUMBER_MASK)) &&
                          ((ptr1->endpoint.bEndpointAddress & USB_DESCRIPTOR_ENDPOINT_ADDRESS_DIRECTION_MASK) ==
@@ -533,6 +528,7 @@ usb_status_t USB_DeviceSetSpeed(usb_device_handle handle, uint8_t speed)
                 {
                     USB_SHORT_TO_LITTLE_ENDIAN_ADDRESS(FS_MTP_BULK_OUT_PACKET_SIZE, ptr1->endpoint.wMaxPacketSize);
                 }
+#endif
                 else
                 {
                 }
@@ -580,7 +576,7 @@ usb_status_t USB_DeviceSetSpeed(usb_device_handle handle, uint8_t speed)
             }
         }
     }
-
+#if defined (USB_DEVICE_CONFIG_MTP) && (USB_DEVICE_CONFIG_MTP > 0U)
     for (int i = 0; i < USB_MTP_ENDPOINT_COUNT; i++)
     {
         if (USB_SPEED_HIGH == speed)
@@ -606,6 +602,7 @@ usb_status_t USB_DeviceSetSpeed(usb_device_handle handle, uint8_t speed)
             }
         }
     }
+#endif
 
     return kStatus_USB_Success;
 }
