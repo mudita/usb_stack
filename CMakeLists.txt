@@ -1,6 +1,25 @@
 add_library(usb_stack STATIC)
 add_library(usb_stack::usb_stack ALIAS usb_stack)
 
+if (MUDITA_USB_ID)
+    set (USB_DEVICE_VENDOR_ID  0x3310 CACHE INTERNAL "Sets USB_DEVICE_VENDOR_ID to Mudita Vendor ID")
+    if (ENABLE_USB_MTP)
+        set (USB_DEVICE_PRODUCT_ID 0x0100 CACHE INTERNAL "Sets USB_DEVICE_PRODUCT_ID to Mudita Pure Product ID")
+    else()
+        set (USB_DEVICE_PRODUCT_ID 0x0102 CACHE INTERNAL "Sets USB_DEVICE_PRODUCT_ID to Mudita Pure (non-MTP) Product ID")
+    endif()
+else()
+    set (USB_DEVICE_VENDOR_ID  0x045E CACHE INTERNAL "Sets USB_DEVICE_VENDOR_ID to Microsoft Vendor ID")
+    set (USB_DEVICE_PRODUCT_ID 0x0622 CACHE INTERNAL "Sets USB_DEVICE_PRODUCT_ID to Windows MTP Simulator Product ID")
+endif()
+
+target_compile_definitions(usb_stack
+    PRIVATE
+        USB_DEVICE_VENDOR_ID=${USB_DEVICE_VENDOR_ID}
+        USB_DEVICE_PRODUCT_ID=${USB_DEVICE_PRODUCT_ID}
+        USB_DEVICE_CONFIG_MTP=$<BOOL:${ENABLE_USB_MTP}>
+)
+
 target_sources(usb_stack
     PRIVATE
         cdc/usb_device_cdc_acm.c
