@@ -326,11 +326,17 @@ usb_device_composite_struct_t* composite_init(userCbFunc callback, void* userArg
     }
 
     LOG_DEBUG("[Composite] USB initialized");
+    composite.initialized = true;
     return &composite;
 }
 
 void composite_deinit(usb_device_composite_struct_t *composite)
 {
+    if (!composite || !composite->initialized) {
+        LOG_DEBUG("[Composite] USB already deinitialized");
+        return;
+    }
+
     usb_status_t err;
     if ((err = USB_DeviceStop(composite->deviceHandle)) != kStatus_USB_Success) {
         LOG_ERROR("[Composite] Device stop failed: 0x%x", err);
@@ -348,11 +354,17 @@ void composite_deinit(usb_device_composite_struct_t *composite)
     }
 
     USB_DeviceClockDeinit();
+    composite->initialized = false;
+    LOG_DEBUG("[Composite] USB deinitialized");
 }
 
 void composite_reinit(usb_device_composite_struct_t *composite, const char *mtpRoot)
 {
     usb_status_t err;
+    if (!composite || !composite->initialized) {
+        LOG_DEBUG("[Composite] USB not initialized");
+        return;
+    }
     if ((err = USB_DeviceStop(composite->deviceHandle)) != kStatus_USB_Success) {
         LOG_ERROR("[Composite] Device stop failed: 0x%x", err);
     }
