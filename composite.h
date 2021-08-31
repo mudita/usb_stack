@@ -23,6 +23,7 @@
 
 typedef struct _usb_device_composite_struct
 {
+    bool initialized;
     #if (defined(USB_DEVICE_CONFIG_CHARGER_DETECT) && (USB_DEVICE_CONFIG_CHARGER_DETECT > 0U)) && \
         (defined(FSL_FEATURE_SOC_USB_ANALOG_COUNT) && (FSL_FEATURE_SOC_USB_ANALOG_COUNT > 0U))
     volatile uint64_t hwTick;
