@@ -83,6 +83,11 @@ if (ENABLE_USB_MTP)
             mtp/mtp.c
             mtp/usb_device_mtp.c
     )
+    if (DEFINED WITH_MTP_SPARE_SPACE AND "${WITH_MTP_SPARE_SPACE}" GREATER 0)
+        target_compile_definitions(usb_stack PRIVATE MTP_SPARE_SPACE=${WITH_MTP_SPARE_SPACE})
+    else()
+        target_compile_definitions(usb_stack PRIVATE MTP_SPARE_SPACE=1024*1024*1024)
+    endif()
 endif()
 
 target_include_directories(usb_stack

@@ -36,6 +36,14 @@ static mtp_storage_properties_t disk_properties =  {
     .volume_id = "1234567890abcdef",
 };
 
+namespace
+{
+    constexpr auto getSpareSpace()
+    {
+        return static_cast<std::uint64_t>(MTP_SPARE_SPACE);
+    }
+}
+
 
 typedef struct {
     uint32_t read;
@@ -82,7 +90,8 @@ static const mtp_storage_properties_t* get_disk_properties(void* arg)
 
     // TODO: stats are for entire storage. If MTP is intended to expose
     // only one directory, these stats should be recalculated
-    data->freespace = stvfs.f_bsize * stvfs.f_bavail;
+    const auto freeSpace = stvfs.f_bsize * stvfs.f_bavail;
+    data->freespace = (getSpareSpace() > freeSpace) ? 0 : freeSpace - getSpareSpace();
     data->capacity =  stvfs.f_frsize * stvfs.f_blocks;
 
     disk_properties.capacity = data->capacity;
@@ -99,7 +108,7 @@ static uint64_t get_free_space(void *arg)
     struct statvfs stvfs {};
     statvfs( purefs::dir::getUserDiskPath().c_str(), &stvfs);
 
-    size = uint64_t(stvfs.f_bsize) * stvfs.f_bavail;
+    size = (uint64_t(stvfs.f_bsize) * stvfs.f_bavail) - getSpareSpace();
     LOG("Free space: %u MB", unsigned(size / 1024 / 1024));
     return size;
 }
@@ -225,6 +234,10 @@ static int fs_create(void *arg, const mtp_object_info_t *info, uint32_t *handle)
     struct mtp_fs *fs = (struct mtp_fs*)arg;
     uint32_t new_handle;
 
+    if (const auto freeSpace = get_free_space(nullptr); freeSpace < info->size) {
+        LOG("There is no space for file %s", info->filename);
+        return -1;
+    }
     new_handle = mtp_db_add(fs->db, info->filename);
     if (!new_handle) {
         LOG("Map is full. Can't create: %s", info->filename);
