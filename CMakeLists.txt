@@ -66,7 +66,8 @@ target_sources(usb_stack
         phy/usb_phy.h
         usb_device_config.h
         usb_device_descriptor.h
-        usb_strings.h
+        pure/usb_strings.h
+        bell/usb_strings.h
         usb.hpp
 )
 
@@ -101,6 +102,11 @@ target_include_directories(usb_stack
             device
             device/ehci
             phy
+        >
+    PRIVATE
+        $<BUILD_INTERFACE:
+            $<$<STREQUAL:${PRODUCT},PurePhone>:${CMAKE_CURRENT_SOURCE_DIR}/pure>
+            $<$<STREQUAL:${PRODUCT},BellHybrid>:${CMAKE_CURRENT_SOURCE_DIR}/bell>
         >
 )
 
