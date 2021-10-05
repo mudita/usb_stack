@@ -8,7 +8,7 @@
 #include <string.h>
 #include <assert.h>
 
-#define MAX_HANDLES 512
+#define MAX_HANDLES 10000
 #define MAX_FILENAME_LENGTH 64
 #define NO_HANDLE (0)
 
