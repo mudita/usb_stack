@@ -17,6 +17,7 @@ struct mtp_fs {
     const char *ROOT;
     DIR* find_data;
     FILE* file;
+    char* iobuf;
 };
 
 extern const struct mtp_storage_api simple_fs_api;

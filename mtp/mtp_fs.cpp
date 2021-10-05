@@ -42,6 +42,7 @@ namespace
     {
         return static_cast<std::uint64_t>(MTP_SPARE_SPACE);
     }
+    constexpr auto iobuf_size = 64U * 1024U;
 }
 
 
@@ -279,7 +280,16 @@ static int fs_open(void *arg, uint32_t handle, const char *mode)
     fs->file = std::fopen(abspath(fs->ROOT, filename), mode);
     if(!fs->file) {
         LOG("[%u]: Fail to open: %s [%s]. Flush and wait", (unsigned int)handle, filename, mode);
-        // TODO: FF_SDDiskFlush(fs->disk);
+        fs->iobuf = nullptr;
+    } else {
+        fs->iobuf = new(std::nothrow) char[iobuf_size];
+        if(fs->iobuf) {
+            if(setvbuf(fs->file, fs->iobuf, _IOFBF, iobuf_size)) {
+                LOG("[%u]: Unable to setvbuf errno %i", (uintptr_t)handle, errno);
+            }
+        } else {
+            LOG("[%u]: Unable to allocate iobuffer", (uintptr_t)handle);
+        }
     }
     LOG("[%u]: Opened: %s [%s]", (unsigned int)handle, filename, mode);
     return !fs->file;
@@ -320,6 +330,8 @@ static void fs_close(void *arg)
         std::fclose(fs->file);
         LOG("[]: Closed");
         fs->file = NULL;
+        delete [] fs->iobuf;
+        fs->iobuf = nullptr;
     }
 }
 
