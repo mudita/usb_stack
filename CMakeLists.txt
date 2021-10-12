@@ -124,6 +124,7 @@ target_link_libraries(usb_stack
     PRIVATE
         log
         module-vfs
+        klib
     PUBLIC
         module-bsp
         module-os
