@@ -165,6 +165,7 @@ static usb_status_t OnRecvCompleted(usb_cdc_vcom_struct_t *cdcVcom,
                 }
             }
             error = RescheduleRecv(cdcVcom);
+            call_user_cb(cdcVcom, VCOM_DATA_RECEIVED);
         } else if (param->length == 0xFFFFFFFF) {
             /* EHCI controller has mechanizm to notify about endpoin deinit. In
              * this case class is not configured and message length is 0xFFFFFFFF */

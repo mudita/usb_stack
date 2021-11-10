@@ -37,6 +37,7 @@ enum vcomEvent {
     VCOM_ERROR_TX_BUFFER_OVERFLOW,
     VCOM_WARNING_RESCHEDULE_BUSY,
     VCOM_WARNING_NOT_CONFIGURED,
+    VCOM_DATA_RECEIVED,
 };
 
 /* @brief Function to inform user code about events happening in

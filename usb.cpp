@@ -3,7 +3,6 @@
  * Unauthorized copying of this file, via any medium is strictly prohibited
  * Proprietary and confidential
  */
-#include <mutex.hpp>
 #include <log/log.hpp>
 #include "usb.hpp"
 
@@ -42,23 +41,34 @@ extern "C"
 #endif
 namespace bsp
 {
-    usb_device_composite_struct_t *usbDeviceComposite = nullptr;
-    TaskHandle_t usbTaskHandle = NULL;
-    xQueueHandle USBReceiveQueue;
-    xQueueHandle USBIrqQueue;
-    static cpp_freertos::MutexStandard mutex;
+    namespace
+    {
+        usb_device_composite_struct_t *usbDeviceComposite = nullptr;
+        xQueueHandle USBReceiveQueue;
+        xQueueHandle USBIrqQueue;
 
-    char usbSerialBuffer[SERIAL_BUFFER_LEN];
+        char usbSerialBuffer[SERIAL_BUFFER_LEN];
 
 #if USBCDC_ECHO_ENABLED
-    bool usbCdcEchoEnabled = false;
+        bool usbCdcEchoEnabled = false;
 
-    constexpr std::string_view usbCDCEchoOnCmd("UsbCdcEcho=ON");
-    constexpr std::string_view usbCDCEchoOffCmd("UsbCdcEcho=OFF");
+        constexpr std::string_view usbCDCEchoOnCmd("UsbCdcEcho=ON");
+        constexpr std::string_view usbCDCEchoOffCmd("UsbCdcEcho=OFF");
 
-    constexpr inline auto usbCDCEchoOnCmdLength  = usbCDCEchoOnCmd.length();
-    constexpr inline auto usbCDCEchoOffCmdLength = usbCDCEchoOffCmd.length();
+        constexpr inline auto usbCDCEchoOnCmdLength  = usbCDCEchoOnCmd.length();
+        constexpr inline auto usbCDCEchoOffCmdLength = usbCDCEchoOffCmd.length();
 #endif
+
+        TimerHandle_t usbTick;
+        void usbUpdateTick(TimerHandle_t)
+        {
+            #if (defined(USB_DEVICE_CONFIG_CHARGER_DETECT) && (USB_DEVICE_CONFIG_CHARGER_DETECT > 0U)) && \
+                (defined(FSL_FEATURE_SOC_USB_ANALOG_COUNT) && (FSL_FEATURE_SOC_USB_ANALOG_COUNT > 0U))
+            // This is an ugly stub for a timer.
+            USB_UpdateHwTick();
+            #endif
+        }
+    }
 
     int usbInit(const bsp::usbInitParams &initParams)
     {
@@ -72,18 +82,8 @@ namespace bsp
             return -1;
         }
 
-        BaseType_t xReturned = xTaskCreate(reinterpret_cast<TaskFunction_t>(&bsp::usbDeviceTask),
-                                           "bsp::usbDeviceTask",
-                                           8192L / sizeof(portSTACK_TYPE),
-                                           nullptr, 2,
-                                           &bsp::usbTaskHandle);
-
-        if (xReturned == pdPASS) {
-            LOG_DEBUG("init created device task");
-        } else {
-            LOG_DEBUG("init can't create device task");
-            return -1;
-        }
+        usbTick = xTimerCreate(
+            "usbHWTick", pdMS_TO_TICKS(1), true, nullptr, usbUpdateTick);
 
         USBReceiveQueue                = initParams.queueHandle;
         USBIrqQueue                    = initParams.irqQueueHandle;
@@ -97,7 +97,6 @@ namespace bsp
     {
         LOG_INFO("usbDeinit");
         composite_deinit(usbDeviceComposite);
-        vTaskDelete(bsp::usbTaskHandle);
     }
 
     void usbReinit(const char *mtpRoot)
@@ -117,64 +116,49 @@ namespace bsp
     	composite_suspend(usbDeviceComposite);
     }
 
-    void usbDeviceTask(void *handle)
-    {
-        uint32_t dataReceivedLength;
-
-        vTaskDelay(3000 / portTICK_PERIOD_MS);
-
-        while (1) {
-            #if (defined(USB_DEVICE_CONFIG_CHARGER_DETECT) && (USB_DEVICE_CONFIG_CHARGER_DETECT > 0U)) && \
-                (defined(FSL_FEATURE_SOC_USB_ANALOG_COUNT) && (FSL_FEATURE_SOC_USB_ANALOG_COUNT > 0U))
-            // This is an ugly stub for a timer.
-            USB_UpdateHwTick();
-            #endif
-
-            dataReceivedLength = usbCDCReceive(&usbSerialBuffer);
-
-            if (dataReceivedLength > 0) {
-                LOG_INFO("usbDeviceTask Received: %d signs", static_cast<int>(dataReceivedLength));
-
-#if USBCDC_ECHO_ENABLED
-                bool usbCdcEchoEnabledPrev = usbCdcEchoEnabled;
-
-                auto usbEchoCmd = std::string_view{usbSerialBuffer, static_cast<size_t>(dataReceivedLength)};
-
-                if ((dataReceivedLength == usbCDCEchoOnCmdLength) && (usbCDCEchoOnCmd == usbEchoCmd)) {
-                    usbCdcEchoEnabled = true;
-                }
-                else if ((dataReceivedLength == usbCDCEchoOffCmdLength) && (usbCDCEchoOffCmd == usbEchoCmd)) {
-                    usbCdcEchoEnabled = false;
-                }
-
-                if (usbCdcEchoEnabled || usbCdcEchoEnabledPrev) {
-                    usbCDCSendRaw(usbSerialBuffer, dataReceivedLength);
-                    LOG_DEBUG("usbDeviceTask echoed: %d signs: [%s]", static_cast<int>(dataReceivedLength), usbSerialBuffer);
-                    continue;
-                }
-#endif
-
-                if (uxQueueSpacesAvailable(USBReceiveQueue) != 0) {
-                    std::string *receiveMessage = new std::string(usbSerialBuffer, dataReceivedLength);
-                    if (xQueueSend(USBReceiveQueue, &receiveMessage, portMAX_DELAY) == errQUEUE_FULL) {
-                        LOG_ERROR("usbDeviceTask can't send data to receiveQueue");
-                    }
-                }
-            }
-            else {
-                vTaskDelay(1 / portTICK_PERIOD_MS);
-            }
-        }
-    }
-
     int usbCDCReceive(void *buffer)
     {
         if (usbDeviceComposite->cdcVcom.inputStream == nullptr)
             return 0;
 
         memset(buffer, 0, SERIAL_BUFFER_LEN);
-
+        
         return VirtualComRecv(&usbDeviceComposite->cdcVcom, buffer, SERIAL_BUFFER_LEN);
+    }
+
+    void usbHandleDataReceived()
+    {
+        uint32_t dataReceivedLength = usbCDCReceive(&usbSerialBuffer);
+
+        if (dataReceivedLength > 0) {
+            LOG_INFO("usbDeviceTask Received: %d signs", static_cast<int>(dataReceivedLength));
+
+#if USBCDC_ECHO_ENABLED
+            bool usbCdcEchoEnabledPrev = usbCdcEchoEnabled;
+
+            auto usbEchoCmd = std::string_view{usbSerialBuffer, static_cast<size_t>(dataReceivedLength)};
+
+            if ((dataReceivedLength == usbCDCEchoOnCmdLength) && (usbCDCEchoOnCmd == usbEchoCmd)) {
+                usbCdcEchoEnabled = true;
+            }
+            else if ((dataReceivedLength == usbCDCEchoOffCmdLength) && (usbCDCEchoOffCmd == usbEchoCmd)) {
+                usbCdcEchoEnabled = false;
+            }
+
+            if (usbCdcEchoEnabled || usbCdcEchoEnabledPrev) {
+                usbCDCSendRaw(usbSerialBuffer, dataReceivedLength);
+                LOG_DEBUG("usbDeviceTask echoed: %d signs: [%s]", static_cast<int>(dataReceivedLength), usbSerialBuffer);
+                continue;
+            }
+#endif
+
+            if (uxQueueSpacesAvailable(USBReceiveQueue) != 0) {
+                std::string *receiveMessage = new std::string(usbSerialBuffer, dataReceivedLength);
+                if (xQueueSend(USBReceiveQueue, &receiveMessage, portMAX_DELAY) == errQUEUE_FULL) {
+                    LOG_ERROR("usbDeviceTask can't send data to receiveQueue");
+                }
+            }
+        }
     }
 
     int usbCDCSend(std::string *message)
@@ -207,13 +191,19 @@ namespace bsp
             xQueueSend(USBIrqQueue, &notification, 0);
             break;
         case VCOM_ATTACHED:
+            xTimerStart(usbTick, 1000);
             notification = USBDeviceStatus::Connected;
             xQueueSend(USBIrqQueue, &notification, 0);
             break;
         case VCOM_DETACHED:
+            xTimerStop(usbTick, 1000);
             notification = USBDeviceStatus::Disconnected;
             xQueueSend(USBIrqQueue, &notification, 0);
             break;
+        case VCOM_DATA_RECEIVED:
+            notification = USBDeviceStatus::DataReceived;
+            xQueueSend(USBIrqQueue, &notification, 0);
+            break;   
         default:
             break;
         }
