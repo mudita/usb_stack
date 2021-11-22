@@ -39,10 +39,10 @@
 /*! @brief USB stack component version definition, changed with component in yaml together */
 #define USB_STACK_COMPONENT_VERSION MAKE_VERSION(2, 5, 0)
 
-/* 
+/*
  * Component ID used by tools
  *
- * FSL_COMPONENT_ID "middleware.usb.stack_common" 
+ * FSL_COMPONENT_ID "middleware.usb.stack_common"
  */
 
 /*! @brief USB error code */
@@ -70,7 +70,7 @@ typedef enum _usb_status
     kStatus_USB_EHCIAttached,
     kStatus_USB_EHCIDetached,
     kStatus_USB_DataOverRun,    /*!< The amount of data returned by the endpoint exceeded
-                                     either the size of the maximum data packet allowed 
+                                     either the size of the maximum data packet allowed
                                      from the endpoint or the remaining buffer size. */
 } usb_status_t;
 

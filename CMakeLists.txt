@@ -20,11 +20,18 @@ else()
     set (USB_DEVICE_PRODUCT_ID 0x0622 CACHE INTERNAL "Sets USB_DEVICE_PRODUCT_ID to Windows MTP Simulator Product ID")
 endif()
 
+if (ENABLE_USB_TASK)
+    set (ENABLE_USB_DEVICE_TASK 1 CACHE INTERNAL "Turn device task in USB stack ON")
+else()
+    set (ENABLE_USB_DEVICE_TASK 0 CACHE INTERNAL "Turn device task in USB stack OFF")
+endif()
+
 target_compile_definitions(usb_stack
     PRIVATE
         USB_DEVICE_VENDOR_ID=${USB_DEVICE_VENDOR_ID}
         USB_DEVICE_PRODUCT_ID=${USB_DEVICE_PRODUCT_ID}
         USB_DEVICE_CONFIG_MTP=$<BOOL:${ENABLE_USB_MTP}>
+        USB_DEVICE_CONFIG_USE_TASK=$<BOOL:${ENABLE_USB_DEVICE_TASK}>
 )
 
 target_sources(usb_stack
