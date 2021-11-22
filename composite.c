@@ -124,6 +124,23 @@ static void USB_DeviceSetIsr(bool enable)
     }
 }
 
+#if defined (USB_DEVICE_CONFIG_USE_TASK) && (USB_DEVICE_CONFIG_USE_TASK > 0U)
+void USB_DeviceTaskFn(void *deviceHandle)
+{
+    USB_DeviceEhciTaskFunction(deviceHandle);
+}
+#endif
+
+#if defined (USB_DEVICE_CONFIG_USE_TASK) && (USB_DEVICE_CONFIG_USE_TASK > 0U)
+void USB_DeviceTask(void *handle)
+{
+    while (1U)
+    {
+        USB_DeviceTaskFn(handle);
+    }
+}
+#endif
+
 #if (defined(USB_DEVICE_CONFIG_CHARGER_DETECT) && (USB_DEVICE_CONFIG_CHARGER_DETECT > 0U)) && \
     (defined(FSL_FEATURE_SOC_USB_ANALOG_COUNT) && (FSL_FEATURE_SOC_USB_ANALOG_COUNT > 0U))
 
@@ -314,6 +331,20 @@ usb_device_composite_struct_t* composite_init(userCbFunc callback, void* userArg
             LOG_ERROR("[Composite] VirtualCom initialization failed");
     }
 
+    #if defined (USB_DEVICE_CONFIG_USE_TASK) && (USB_DEVICE_CONFIG_USE_TASK > 0U)
+    if (xTaskCreate(USB_DeviceTask,                  /* pointer to the task */
+                    (char const *)"usb device task", /* task name for kernel awareness debugging */
+                    3072L / sizeof(portSTACK_TYPE),  /* task stack size */
+                    composite.deviceHandle,          /* optional task startup argument */
+                    tskIDLE_PRIORITY,                /* initial priority */
+                    &composite.device_task_handle    /* optional task handle to create */
+                    ) != pdPASS)
+    {
+        LOG_ERROR("[Composite] Failed to create usb device task!");
+        return NULL;
+    }
+    #endif
+
     USB_DeviceSetIsr(true);
 
     if (USB_DeviceRun(composite.deviceHandle) != kStatus_USB_Success) {
@@ -336,6 +367,10 @@ void composite_deinit(usb_device_composite_struct_t *composite)
         LOG_DEBUG("[Composite] USB already deinitialized");
         return;
     }
+
+    #if defined (USB_DEVICE_CONFIG_USE_TASK) && (USB_DEVICE_CONFIG_USE_TASK > 0U)
+    vTaskDelete(composite->device_task_handle);
+    #endif
 
     usb_status_t err;
     if ((err = USB_DeviceStop(composite->deviceHandle)) != kStatus_USB_Success) {

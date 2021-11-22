@@ -29,6 +29,9 @@ typedef struct _usb_device_composite_struct
     volatile uint64_t hwTick;
     #endif
     usb_device_handle deviceHandle; /* USB device handle. */
+#if defined (USB_DEVICE_CONFIG_USE_TASK) && (USB_DEVICE_CONFIG_USE_TASK > 0U)
+    TaskHandle_t device_task_handle; /* USB device task handle */
+#endif
     usb_cdc_vcom_struct_t cdcVcom;  /* CDC virtual com device structure. */
 #if defined (USB_DEVICE_CONFIG_MTP) && (USB_DEVICE_CONFIG_MTP > 0U)
     usb_mtp_struct_t mtpApp;
