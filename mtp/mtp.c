@@ -276,7 +276,7 @@ static void MtpTask(void *handle)
 
     mtp_responder_init(mtpApp->responder);
     if (mtp_responder_set_device_info(mtpApp->responder, &dummy_device)) {
-        PRINTF("[MTP] Invalide device info!");
+        PRINTF("[MTP] Invalid device info!");
         return;
     }
     mtp_responder_set_data_buffer(mtpApp->responder, mtp_response, sizeof(mtp_response));
@@ -374,8 +374,6 @@ static void MtpTask(void *handle)
     {
         xSemaphoreGive(mtpApp->join);
     }
-    PRINTF("[MTP] Task terminated");
-    vTaskDelete(NULL);
 }
 
 usb_status_t MtpInit(usb_mtp_struct_t *mtpApp, class_handle_t classHandle)
@@ -413,7 +411,7 @@ usb_status_t MtpInit(usb_mtp_struct_t *mtpApp, class_handle_t classHandle)
                     3072 / sizeof(portSTACK_TYPE), /* task stack size */
                     mtpApp,                   /* optional task startup argument */
                     tskIDLE_PRIORITY,               /* initial priority */
-                    NULL             /* optional task handle to create */
+                    &mtpApp->mtp_task_handle        /* optional task handle to create */
                     ) != pdPASS)
     {
         PRINTF("[MTP] Create task failed");
@@ -424,9 +422,6 @@ usb_status_t MtpInit(usb_mtp_struct_t *mtpApp, class_handle_t classHandle)
 
 void MtpDeinit(usb_mtp_struct_t *mtpApp)
 {
-    mtpApp->in_reset = true;
-    mtpApp->is_terminated = true;
-
     if (!mtpApp->configured)
     {
         /* If MTP was never attached to the host,
@@ -434,6 +429,9 @@ void MtpDeinit(usb_mtp_struct_t *mtpApp)
         mtpApp->configured = true;
         xSemaphoreGive(mtpApp->join);
     }
+
+    mtpApp->in_reset = true;
+    mtpApp->is_terminated = true;
 
     /* wait max 10 msec to terminate MTP task */
     if (!xSemaphoreTake(mtpApp->join, 10/portTICK_PERIOD_MS))
@@ -450,6 +448,7 @@ void MtpDeinit(usb_mtp_struct_t *mtpApp)
     mtpApp->outputBox = NULL;
     mtpApp->join = NULL;
     mtpRootPath[0] = '\0';
+    vTaskDelete(mtpApp->mtp_task_handle);
     PRINTF("[MTP] Deinitialized");
 
 }
