@@ -22,6 +22,7 @@ typedef struct {
     MessageBufferHandle_t inputBox;
     MessageBufferHandle_t outputBox;
     SemaphoreHandle_t join;
+    TaskHandle_t mtp_task_handle; /* USB MTP task handle */
 } usb_mtp_struct_t;
 
 usb_status_t MtpUSBCallback(uint32_t event, void *param, void *userArg);
