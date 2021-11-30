@@ -424,3 +424,11 @@ void composite_suspend(usb_device_composite_struct_t *composite)
 		LOG_ERROR("[Composite] Device suspend failed: 0x%x", err);
 	}
 }
+
+void composite_resume(usb_device_composite_struct_t *composite)
+{
+	usb_status_t err;
+	if ((err = USB_DeviceSetStatus(composite->deviceHandle, kUSB_DeviceStatusBusResume, NULL)) != kStatus_USB_Success) {
+		LOG_ERROR("[Composite] Device resume failed: 0x%x", err);
+	}
+}

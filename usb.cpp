@@ -95,6 +95,11 @@ namespace bsp
 
     void usbDeinit()
     {
+        // Restart HW tick for resume operation
+        xTimerStart(usbTick, 1000);
+        // Resume if suspended
+        composite_resume(usbDeviceComposite);
+
         LOG_INFO("usbDeinit");
         composite_deinit(usbDeviceComposite);
     }
