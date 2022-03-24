@@ -389,6 +389,8 @@ void composite_deinit(usb_device_composite_struct_t *composite)
     }
 
     USB_DeviceClockDeinit();
+    PMU->REG_3P0 &= ~PMU_REG_3P0_ENABLE_ILIMIT(1);
+    PMU->REG_3P0 &= ~PMU_REG_3P0_ENABLE_LINREG(1);
     composite->initialized = false;
     LOG_DEBUG("[Composite] USB deinitialized");
 }
