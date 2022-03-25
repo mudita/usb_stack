@@ -14,11 +14,7 @@
 #include "usb_device_descriptor.h"
 #include "composite.h"
 
-#if DEBUG_VCOM
-#define PRINTF LOG_DEBUG
-#else
-#define PRINTF(...)
-#endif
+#include "log.hpp"
 
 #if (VCOM_INPUT_STREAM_SIZE < HS_CDC_VCOM_BULK_IN_PACKET_SIZE) || \
     (VCOM_OUTPUT_STREAM_SIZE < HS_CDC_VCOM_BULK_OUT_PACKET_SIZE)
@@ -100,7 +96,7 @@ static usb_status_t RescheduleRecv(usb_cdc_vcom_struct_t *cdcVcom)
                 s_currRecvBuf,
                 endpoint_size)) != kStatus_USB_Success)
         {
-            PRINTF("[VCOM]: Error: RescheduleRecv FAILED: %u\n", error);
+            log_debug("[VCOM]: Error: RescheduleRecv FAILED: %u\n", error);
             call_user_cb(cdcVcom, VCOM_WARNING_RESCHEDULE_BUSY);
         }
     }
@@ -124,7 +120,7 @@ static usb_status_t OnSendCompleted(usb_cdc_vcom_struct_t *cdcVcom,
         if (to_send) {
             if ((error = USB_DeviceCdcAcmSend(cdcVcom->cdcAcmHandle,
                     USB_CDC_VCOM_DIC_BULK_IN_ENDPOINT, s_currSendBuf, to_send))) {
-                PRINTF("[VCOM] Error: dropped %u sending bytes", to_send);
+                log_debug("[VCOM] Error: dropped %u sending bytes", to_send);
                 call_user_cb(cdcVcom, VCOM_ERROR_TX_BUFFER_OVERFLOW);
             }
         } else {
@@ -136,7 +132,7 @@ static usb_status_t OnSendCompleted(usb_cdc_vcom_struct_t *cdcVcom,
     } else {
         /* EHCI controller has mechanizm to notify about endpoin deinit. In
          * this case class is not configured and message length is 0xFFFFFFFF */
-        PRINTF("[VCOM] Tx notification from controller: 0x%x",
+        log_debug("[VCOM] Tx notification from controller: 0x%x",
                 (unsigned int)param->length);
         call_user_cb(cdcVcom, VCOM_WARNING_NOT_CONFIGURED);
     }
@@ -160,7 +156,7 @@ static usb_status_t OnRecvCompleted(usb_cdc_vcom_struct_t *cdcVcom,
                 size_t length = 0;
                 length = xStreamBufferSendFromISR(cdcVcom->inputStream, param->buffer, param->length, NULL);
                 if (length < param->length) {
-                    PRINTF("[VCOM] Error: dropped %lu received bytes", param->length - length);
+                    log_debug("[VCOM] Error: dropped %lu received bytes", param->length - length);
                     call_user_cb(cdcVcom, VCOM_ERROR_RX_BUFFER_OVERFLOW);
                 }
             }
@@ -169,17 +165,17 @@ static usb_status_t OnRecvCompleted(usb_cdc_vcom_struct_t *cdcVcom,
         } else if (param->length == 0xFFFFFFFF) {
             /* EHCI controller has mechanizm to notify about endpoin deinit. In
              * this case class is not configured and message length is 0xFFFFFFFF */
-            PRINTF("[VCOM] Rx notification from controller: 0x%x",
+            log_debug("[VCOM] Rx notification from controller: 0x%x",
                     (unsigned int)param->length);
             call_user_cb(cdcVcom, VCOM_WARNING_NOT_CONFIGURED);
         } else {
-            PRINTF("[VCOM] Error: missed %lu received bytes", param->length);
+            log_debug("[VCOM] Error: missed %lu received bytes", param->length);
             call_user_cb(cdcVcom, VCOM_ERROR_MISSED_INCOMING_DATA);
         }
     } else {
         /* EHCI controller has mechanizm to notify about endpoin deinit. In
          * this case class is not configured and message length is 0xFFFFFFFF */
-        PRINTF("[VCOM] Rx notification from controller: 0x%x",
+        log_debug("[VCOM] Rx notification from controller: 0x%x",
                 (unsigned int)param->length);
         call_user_cb(cdcVcom, VCOM_WARNING_NOT_CONFIGURED);
     }
@@ -327,7 +323,7 @@ usb_status_t VirtualComUSBCallback(uint32_t event, void *param, void *userArg)
                                              sizeof(acmInfo->serialStateBuf));
                 if (kStatus_USB_Success != error)
                 {
-                    PRINTF("kUSB_DeviceCdcEventSetControlLineState error!");
+                    log_debug("kUSB_DeviceCdcEventSetControlLineState error!");
                 }
                 ((usb_device_cdc_acm_struct_t *)cdcVcom->cdcAcmHandle)->hasSentState = 1;
             }
@@ -370,13 +366,13 @@ usb_status_t VirtualComUSBCallback(uint32_t event, void *param, void *userArg)
 
 void VirtualComAttached(usb_cdc_vcom_struct_t *cdcVcom)
 {
-    PRINTF("[VCOM] Info: attached");
+    log_debug("[VCOM] Info: attached");
     call_user_cb(cdcVcom, VCOM_ATTACHED);
 }
 
 void VirtualComDetached(usb_cdc_vcom_struct_t *cdcVcom)
 {
-    PRINTF("[VCOM] Info: detached");
+    log_debug("[VCOM] Info: detached");
     cdcVcom->configured = false;
 
     xStreamBufferReceiveFromISR(cdcVcom->outputStream, s_currSendBuf, sizeof(s_currSendBuf), 0);
@@ -385,7 +381,7 @@ void VirtualComDetached(usb_cdc_vcom_struct_t *cdcVcom)
 
 void VirtualComReset(usb_cdc_vcom_struct_t *cdcVcom, uint8_t speed)
 {
-    PRINTF("[VCOM] Info: bus reset");
+    log_debug("[VCOM] Info: bus reset");
     cdcVcom->configured = false;
 
     if (speed == USB_SPEED_FULL)
@@ -412,7 +408,7 @@ usb_status_t VirtualComUSBSetConfiguration(usb_cdc_vcom_struct_t *cdcVcom, uint8
     {
         cdcVcom->configured = true;
 
-        PRINTF("[VCOM] Info: configured");
+        log_debug("[VCOM] Info: configured");
         /* Schedule buffer for receive */
         RescheduleRecv(cdcVcom);
         call_user_cb(cdcVcom, VCOM_CONFIGURED);
@@ -450,7 +446,7 @@ usb_status_t VirtualComInit(usb_cdc_vcom_struct_t *cdcVcom, class_handle_t class
 void VirtualComDeinit(usb_cdc_vcom_struct_t *cdcVcom)
 {
     if (!cdcVcom || !cdcVcom->configured || !cdcVcom->inputStream || !cdcVcom->inputStream) {
-        PRINTF("[VCOM] Attempt to deinit not initialized virtual com");
+        log_debug("[VCOM] Attempt to deinit not initialized virtual com");
         return;
     }
 
@@ -462,7 +458,7 @@ void VirtualComDeinit(usb_cdc_vcom_struct_t *cdcVcom)
     cdcVcom->configured = false;
     taskEXIT_CRITICAL();
 
-    PRINTF("[VCOM] Deinitialized");
+    log_debug("[VCOM] Deinitialized");
 }
 
 int VirtualComSend(usb_cdc_vcom_struct_t *cdcVcom, const void* data, size_t length)

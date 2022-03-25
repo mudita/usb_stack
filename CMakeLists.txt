@@ -26,12 +26,15 @@ else()
     set (ENABLE_USB_DEVICE_TASK 0 CACHE INTERNAL "Turn device task in USB stack OFF")
 endif()
 
+option(USB_ENABLE_LOGS "Enable logs" OFF)
+
 target_compile_definitions(usb_stack
     PRIVATE
         USB_DEVICE_VENDOR_ID=${USB_DEVICE_VENDOR_ID}
         USB_DEVICE_PRODUCT_ID=${USB_DEVICE_PRODUCT_ID}
         USB_DEVICE_CONFIG_MTP=$<BOOL:${ENABLE_USB_MTP}>
         USB_DEVICE_CONFIG_USE_TASK=$<BOOL:${ENABLE_USB_DEVICE_TASK}>
+        $<$<BOOL:${USB_ENABLE_LOGS}>:USB_ENABLE_LOGS>
 )
 
 target_sources(usb_stack
@@ -129,7 +132,7 @@ endif()
 
 target_link_libraries(usb_stack
     PRIVATE
-        log
+        $<$<BOOL:${USB_ENABLE_LOGS}>:log-api>
         module-vfs
     PUBLIC
         module-bsp
