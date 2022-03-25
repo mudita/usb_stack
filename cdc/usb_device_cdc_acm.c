@@ -28,7 +28,7 @@
 
 #define USB_CDC_ACM_EXIT_CRITICAL() OSA_EXIT_CRITICAL()
 
-#define PRINTF LOG_DEBUG
+#include "log.hpp"
 /*******************************************************************************
  * Variables
  ******************************************************************************/
@@ -707,17 +707,17 @@ usb_status_t USB_DeviceCdcAcmInit(uint8_t controllerId,
     cdcAcmHandle->bulkIn.mutex = (osa_mutex_handle_t)&cdcAcmHandle->bulkIn.mutexBuffer[0];
     if (KOSA_StatusSuccess != OSA_MutexCreate(&(cdcAcmHandle->bulkIn.mutex)))
     {
-        PRINTF("[VCOM DEV]: mutex create error at %d!", __LINE__);
+        log_debug("[VCOM DEV]: mutex create error at %d!", __LINE__);
     }
     cdcAcmHandle->bulkOut.mutex = (osa_mutex_handle_t)&cdcAcmHandle->bulkOut.mutexBuffer[0];
     if (KOSA_StatusSuccess != OSA_MutexCreate(&(cdcAcmHandle->bulkOut.mutex)))
     {
-        PRINTF("[VCOM DEV]: mutex create error at %d!", __LINE__);
+        log_debug("[VCOM DEV]: mutex create error at %d!", __LINE__);
     }
     cdcAcmHandle->interruptIn.mutex = (osa_mutex_handle_t)&cdcAcmHandle->interruptIn.mutexBuffer[0];
     if (KOSA_StatusSuccess != OSA_MutexCreate(&(cdcAcmHandle->interruptIn.mutex)))
     {
-        PRINTF("[VCOM DEV]: mutex create error at %d!", __LINE__);
+        log_debug("[VCOM DEV]: mutex create error at %d!", __LINE__);
     }
     *handle = (class_handle_t)cdcAcmHandle;
     return error;
@@ -745,15 +745,15 @@ usb_status_t USB_DeviceCdcAcmDeinit(class_handle_t handle)
     }
     if (KOSA_StatusSuccess != OSA_MutexDestroy(&(cdcAcmHandle->bulkIn.mutex)))
     {
-        PRINTF("[VCOM DEV] mutex destroy error!");
+        log_debug("[VCOM DEV] mutex destroy error!");
     }
     if (KOSA_StatusSuccess != OSA_MutexDestroy(&(cdcAcmHandle->bulkOut.mutex)))
     {
-        PRINTF("[VCOM DEV] mutex destroy error!");
+        log_debug("[VCOM DEV] mutex destroy error!");
     }
     if (KOSA_StatusSuccess != OSA_MutexDestroy(&(cdcAcmHandle->interruptIn.mutex)))
     {
-        PRINTF("[VCOM DEV] mutex destroy error!");
+        log_debug("[VCOM DEV] mutex destroy error!");
     }
     error = USB_DeviceCdcAcmEndpointsDeinit(cdcAcmHandle);
     USB_DeviceCdcAcmFreeHandle(cdcAcmHandle);

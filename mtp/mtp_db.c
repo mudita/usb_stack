@@ -12,12 +12,7 @@
 #define MAX_FILENAME_LENGTH 64
 #define NO_HANDLE (0)
 
-#if DEBUG_DB
-#   include <fsl_debug_console.h>
-#   define LOG(format...) PRINTF("[MTPDB]: "format)
-#else
-#   define LOG(...) LOG_INFO(__VA_ARGS__)
-#endif
+#include "log.hpp"
 
 typedef char db_entry[MAX_FILENAME_LENGTH];
 typedef uint32_t handle_t;
@@ -62,7 +57,7 @@ struct mtp_db* mtp_db_alloc(void)
 {
     struct mtp_db *db = malloc(sizeof(struct mtp_db));
     if (!db) {
-        LOG("Not enough memory!\n");
+        log_debug("Not enough memory!\n");
         return NULL;
     }
     memset(db, 0, sizeof(struct mtp_db));
@@ -87,7 +82,7 @@ uint32_t mtp_db_add(struct mtp_db *db, const char *key)
     handle = db_alloc(db);
     if (handle) {
         strncpy(db->map[handle], key, MAX_FILENAME_LENGTH);
-        LOG("add [%u]: %s\n", (unsigned int)handle, db->map[handle]);
+        log_debug("add [%u]: %s\n", (unsigned int)handle, db->map[handle]);
         return handle;
     }
     return NO_HANDLE;
@@ -127,7 +122,7 @@ void mtp_db_del(struct mtp_db *db, uint32_t handle)
     assert(db);
 
     if (handle > 0 && handle < MAX_HANDLES) {
-        LOG("drop [%u]: %s\n", (unsigned int)handle, db->map[handle]);
+        log_debug("drop [%u]: %s\n", (unsigned int)handle, db->map[handle]);
         db_free(db, handle);
     }
 }
