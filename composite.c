@@ -110,6 +110,50 @@ static void USB_DeviceClockDeinit(void)
     }
 }
 
+static void USB_DevicePllInit(void)
+{
+    if (CONTROLLER_ID == kUSB_ControllerEhci0)
+    {
+        // Power on USB1 PLL
+        CCM_ANALOG->PLL_USB1_CLR = CCM_ANALOG_PLL_USB1_BYPASS_MASK;
+        CCM_ANALOG->PLL_USB1_SET = CCM_ANALOG_PLL_USB1_POWER_MASK;
+    }
+    else
+    {
+        // Power on USB2 PLL
+        CCM_ANALOG->PLL_USB2_CLR = CCM_ANALOG_PLL_USB2_BYPASS_MASK;
+        CCM_ANALOG->PLL_USB2_SET = CCM_ANALOG_PLL_USB2_POWER_MASK;
+    }
+}
+
+static void USB_DevicePllDeinit(void)
+{
+    if (CONTROLLER_ID == kUSB_ControllerEhci0)
+    {
+        // Power off USB1 PLL
+        CCM_ANALOG->PLL_USB1_SET = CCM_ANALOG_PLL_USB1_BYPASS_MASK;
+        CCM_ANALOG->PLL_USB1_CLR = CCM_ANALOG_PLL_USB1_POWER_MASK;
+    }
+    else
+    {
+        // Power off USB2 PLL
+        CCM_ANALOG->PLL_USB2_SET = CCM_ANALOG_PLL_USB2_BYPASS_MASK;
+        CCM_ANALOG->PLL_USB2_CLR = CCM_ANALOG_PLL_USB2_POWER_MASK;
+    }
+}
+
+static void USB_DevicePhyDeinit(void)
+{
+    if (CONTROLLER_ID == kUSB_ControllerEhci0)
+    {
+        USBPHY1->PWD = 0xFFFFFFFF;
+    }
+    else
+    {
+        USBPHY2->PWD = 0xFFFFFFFF;
+    }
+}
+
 static void USB_DeviceSetIsr(bool enable)
 {
     uint8_t irqNumber;
@@ -304,6 +348,8 @@ usb_device_composite_struct_t* composite_init(userCbFunc callback, void* userArg
         USB_DeviceSetSerialNumberString(serialNumberAscii);
     }
 
+    USB_DevicePllInit();
+
     PMU->REG_3P0 |= PMU_REG_3P0_ENABLE_ILIMIT(1);
     PMU->REG_3P0 |= PMU_REG_3P0_ENABLE_LINREG(1);
 
@@ -392,7 +438,10 @@ void composite_deinit(usb_device_composite_struct_t *composite)
         log_error("[Composite] Device class deinit failed: 0x%x", err);
     }
 
+    USB_DevicePhyDeinit();
     USB_DeviceClockDeinit();
+    USB_DevicePllDeinit();
+
     composite->initialized = false;
     log_debug("[Composite] USB deinitialized");
 }
