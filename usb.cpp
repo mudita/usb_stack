@@ -3,8 +3,8 @@
  * Unauthorized copying of this file, via any medium is strictly prohibited
  * Proprietary and confidential
  */
-#include <log/log.hpp>
 #include "usb.hpp"
+#include "log.hpp"
 
 extern "C"
 {
@@ -20,25 +20,6 @@ extern "C"
 #include "usb_phy.h"
 }
 
-#ifndef DEUBG_USB
-    #undef LOG_PRINTF
-    #undef LOG_TRACE
-    #undef LOG_DEBUG
-    #undef LOG_INFO
-    #undef LOG_WARN
-    #undef LOG_ERROR
-    #undef LOG_FATAL
-    #undef LOG_CUSTOM
-
-    #define LOG_PRINTF(...)
-    #define LOG_TRACE(...)
-    #define LOG_DEBUG(...)
-    #define LOG_INFO(...)
-    #define LOG_WARN(...)
-    #define LOG_ERROR(...)
-    #define LOG_FATAL(...)
-    #define LOG_CUSTOM(loggerLevel, ...)
-#endif
 namespace bsp
 {
     namespace
@@ -75,7 +56,7 @@ namespace bsp
         if (!(initParams.queueHandle &&
               initParams.irqQueueHandle &&
               initParams.serialNumber)) {
-            LOG_ERROR("Invalid argument(s): 0x%p/0x%p/0x%p",
+            log_error("Invalid argument(s): 0x%p/0x%p/0x%p",
                 initParams.queueHandle,
                 initParams.irqQueueHandle,
                 initParams.serialNumber);
@@ -95,21 +76,29 @@ namespace bsp
 
     void usbDeinit()
     {
+    	log_debug("usbDeinit");
         // Restart HW tick for resume operation
-        xTimerStart(usbTick, 1000);
-        // Resume if suspended
-        composite_resume(usbDeviceComposite);
+        if (xTimerStart(usbTick, 0) == pdPASS ) {
+			// Resume if suspended
+			composite_resume(usbDeviceComposite);
 
-        LOG_INFO("usbDeinit");
+			if (xTimerStop(usbTick, 0) != pdPASS){
+				log_error("The usbTick timer could not be stopped");
+			}
+        }
+        else {
+        	log_error("The usbTick timer could not be started");
+        }
+
         composite_deinit(usbDeviceComposite);
     }
 
     void usbReinit(const char *mtpRoot)
     {
-        LOG_INFO("usbReinit");
+        log_debug("usbReinit");
         if (!mtpRoot || (mtpRoot[0] == '\0'))
         {
-           LOG_ERROR("Attempted USB reinit with empty MTP path");
+           log_error("Attempted USB reinit with empty MTP path");
            return;
         }
         composite_reinit(usbDeviceComposite, mtpRoot);
@@ -117,7 +106,7 @@ namespace bsp
 
     void usbSuspend()
     {
-    	LOG_INFO("usbSuspend");
+    	log_debug("usbSuspend");
     	composite_suspend(usbDeviceComposite);
     }
 
@@ -136,7 +125,7 @@ namespace bsp
         uint32_t dataReceivedLength = usbCDCReceive(&usbSerialBuffer);
 
         if (dataReceivedLength > 0) {
-            LOG_INFO("usbDeviceTask Received: %d signs", static_cast<int>(dataReceivedLength));
+            log_debug("usbDeviceTask Received: %d signs", static_cast<int>(dataReceivedLength));
 
 #if USBCDC_ECHO_ENABLED
             bool usbCdcEchoEnabledPrev = usbCdcEchoEnabled;
@@ -152,7 +141,7 @@ namespace bsp
 
             if (usbCdcEchoEnabled || usbCdcEchoEnabledPrev) {
                 usbCDCSendRaw(usbSerialBuffer, dataReceivedLength);
-                LOG_DEBUG("usbDeviceTask echoed: %d signs: [%s]", static_cast<int>(dataReceivedLength), usbSerialBuffer);
+                log_debug("usbDeviceTask echoed: %d signs: [%s]", static_cast<int>(dataReceivedLength), usbSerialBuffer);
                 continue;
             }
 #endif
@@ -160,7 +149,7 @@ namespace bsp
             if (uxQueueSpacesAvailable(USBReceiveQueue) != 0) {
                 std::string *receiveMessage = new std::string(usbSerialBuffer, dataReceivedLength);
                 if (xQueueSend(USBReceiveQueue, &receiveMessage, portMAX_DELAY) == errQUEUE_FULL) {
-                    LOG_ERROR("usbDeviceTask can't send data to receiveQueue");
+                    log_error("usbDeviceTask can't send data to receiveQueue");
                 }
             }
         }
