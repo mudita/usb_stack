@@ -144,7 +144,7 @@ static usb_status_t OnConfigurationComplete(usb_mtp_struct_t* mtpApp, void *para
 {
     mtpApp->configured = true;
     log_debug("[MTP] Configured");
-    xSemaphoreGiveFromISR(mtpApp->join, NULL);
+    xSemaphoreGiveFromISR(mtpApp->configuring, NULL);
     return kStatus_USB_Success;
 }
 
@@ -273,6 +273,11 @@ static void MtpTask(void *handle)
     mtp_responder_init(mtpApp->responder);
     if (mtp_responder_set_device_info(mtpApp->responder, &dummy_device)) {
         log_debug("[MTP] Invalid device info!");
+        mtp_fs_free(mtpApp->mtp_fs);
+        mtpApp->mtp_fs = NULL;
+        if (mtpApp->join) {
+            xSemaphoreGive(mtpApp->join);
+        }
         return;
     }
     mtp_responder_set_data_buffer(mtpApp->responder, mtp_response, sizeof(mtp_response));
@@ -289,7 +294,8 @@ static void MtpTask(void *handle)
 
         if (!mtpApp->configured) {
             log_debug("[MTP] Wait for configuration");
-            xSemaphoreTake(mtpApp->join, portMAX_DELAY);
+            xSemaphoreTake(mtpApp->configuring, portMAX_DELAY);
+            continue;
         }
 
         xMessageBufferReset(mtpApp->inputBox);
@@ -366,10 +372,12 @@ static void MtpTask(void *handle)
         }
     }
     mtp_fs_free(mtpApp->mtp_fs);
+    mtpApp->mtp_fs = NULL;
     if (mtpApp->join)
     {
         xSemaphoreGive(mtpApp->join);
     }
+    vTaskDelete(NULL);
 }
 
 usb_status_t MtpInit(usb_mtp_struct_t *mtpApp, class_handle_t classHandle)
@@ -382,6 +390,11 @@ usb_status_t MtpInit(usb_mtp_struct_t *mtpApp, class_handle_t classHandle)
         return kStatus_USB_AllocFail;
     }
     xSemaphoreGive(mtpApp->join);
+
+    if ((mtpApp->configuring = xSemaphoreCreateBinary())  == NULL) {
+        return kStatus_USB_AllocFail;
+    }
+    xSemaphoreGive(mtpApp->configuring);
 
     if ((mtpApp->inputBox = xMessageBufferCreate(CONFIG_RX_STREAM_SIZE*sizeof(rx_buffer))) == NULL) {
         return kStatus_USB_AllocFail;
@@ -423,14 +436,14 @@ void MtpDeinit(usb_mtp_struct_t *mtpApp)
         /* If MTP was never attached to the host,
            pretend it's configured and a poke the task */
         mtpApp->configured = true;
-        xSemaphoreGive(mtpApp->join);
+        xSemaphoreGive(mtpApp->configuring);
     }
 
     mtpApp->in_reset = true;
     mtpApp->is_terminated = true;
 
-    /* wait max 10 msec to terminate MTP task */
-    if (!xSemaphoreTake(mtpApp->join, 10/portTICK_PERIOD_MS))
+    /* wait max 150 msec to terminate MTP task */
+    if (!xSemaphoreTake(mtpApp->join, 150/portTICK_PERIOD_MS))
     {
         log_debug("[MTP] Unable to join MTP thread");
     }
@@ -439,12 +452,14 @@ void MtpDeinit(usb_mtp_struct_t *mtpApp)
     vStreamBufferDelete(mtpApp->outputBox);
     vStreamBufferDelete(mtpApp->inputBox);
     vSemaphoreDelete(mtpApp->join);
+    vSemaphoreDelete(mtpApp->configuring);
     mtpApp->responder = NULL;
     mtpApp->outputBox = NULL;
     mtpApp->outputBox = NULL;
     mtpApp->join = NULL;
+    mtpApp->configuring = NULL;
     mtpRootPath[0] = '\0';
-    vTaskDelete(mtpApp->mtp_task_handle);
+
     log_debug("[MTP] Deinitialized");
 
 }
