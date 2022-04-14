@@ -123,7 +123,6 @@ namespace bsp
     void usbHandleDataReceived()
     {
         uint32_t dataReceivedLength = usbCDCReceive(&usbSerialBuffer);
-
         if (dataReceivedLength > 0) {
             log_debug("usbDeviceTask Received: %d signs", static_cast<int>(dataReceivedLength));
 
@@ -197,7 +196,10 @@ namespace bsp
         case VCOM_DATA_RECEIVED:
             notification = USBDeviceStatus::DataReceived;
             xQueueSend(USBIrqQueue, &notification, 0);
-            break;   
+            break;
+        case VCOM_RESET:
+            notification = USBDeviceStatus::Reset;
+            xQueueSend(USBIrqQueue, &notification, 0);
         default:
             break;
         }
