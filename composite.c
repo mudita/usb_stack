@@ -484,3 +484,10 @@ void composite_resume(usb_device_composite_struct_t *composite)
 		log_error("[Composite] Device resume failed: 0x%x", err);
 	}
 }
+
+void composite_startMTP(usb_device_composite_struct_t *composite)
+{
+#if defined (USB_DEVICE_CONFIG_MTP) && (USB_DEVICE_CONFIG_MTP > 0U)
+    MtpStart(&composite->mtpApp);
+#endif
+}
