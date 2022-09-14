@@ -31,8 +31,6 @@ USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE) static uint8_t mtp_req
 USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE) static uint8_t mtp_response[sizeof(tx_buffer)];
 USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE) static char mtpRootPath[256];
 
-#define USER_ROOT "/sys/user/music"
-
 static mtp_device_info_t dummy_device = {
     .manufacturer = "Mudita",
     .model = "Pure",
@@ -380,7 +378,7 @@ static void MtpTask(void *handle)
     vTaskDelete(NULL);
 }
 
-usb_status_t MtpInit(usb_mtp_struct_t *mtpApp, class_handle_t classHandle)
+usb_status_t MtpInit(usb_mtp_struct_t *mtpApp, class_handle_t classHandle, const char *mtpRoot)
 {
     mtpApp->configured = false;
     mtpApp->is_terminated = false;
@@ -409,11 +407,7 @@ usb_status_t MtpInit(usb_mtp_struct_t *mtpApp, class_handle_t classHandle)
         return kStatus_USB_AllocFail;
     }
 
-    // Set initial root path to user files
-    if (mtpRootPath[0] == '\0')
-    {
-        strcpy(mtpRootPath, USER_ROOT);
-    }
+    strncpy(mtpRootPath, mtpRoot,sizeof mtpRootPath);
 
     if (xTaskCreate(MtpTask,                  /* pointer to the task */
                     "mtp task",               /* task name for kernel awareness debugging */
@@ -474,10 +468,10 @@ usb_status_t MtpReinit(usb_mtp_struct_t *mtpApp, class_handle_t classHandle, con
     // We switch MTP path to point to Backup folder
     if (mtpRoot)
     {
-        strcpy(mtpRootPath, mtpRoot);
+        strncpy(mtpRootPath, mtpRoot,sizeof mtpRootPath);
     }
 
-    status = MtpInit(mtpApp, classHandle);
+    status = MtpInit(mtpApp, classHandle,mtpRootPath);
 
     if (status == kStatus_USB_Success)
     {
@@ -510,5 +504,4 @@ void MtpDetached(usb_mtp_struct_t *mtpApp)
     log_debug("[MTP] MTP detached");
     mtpApp->configured = false;
     mtpApp->in_reset = true;
-    strcpy(mtpRootPath, USER_ROOT);
 }

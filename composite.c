@@ -332,7 +332,7 @@ static usb_status_t USB_DeviceCallback(usb_device_handle handle, uint32_t event,
 }
 
 
-usb_device_composite_struct_t* composite_init(userCbFunc callback, void* userArg)
+usb_device_composite_struct_t* composite_init(userCbFunc callback, const char *serialNumber, const char *mtpRoot)
 {
     if (USB_DeviceClockInit() != kStatus_USB_Success) {
         log_error("[Composite] USB Device Clock init failed");
@@ -342,10 +342,9 @@ usb_device_composite_struct_t* composite_init(userCbFunc callback, void* userArg
     composite.attach                = 0;
     composite.cdcVcom.cdcAcmHandle  = (class_handle_t)NULL;
     composite.deviceHandle          = NULL;
-    const char *serialNumberAscii   = (const char *)userArg;
 
-    if (serialNumberAscii && serialNumberAscii[0]) {
-        USB_DeviceSetSerialNumberString(serialNumberAscii);
+    if (serialNumber && serialNumber[0]) {
+        USB_DeviceSetSerialNumberString(serialNumber);
     }
 
     USB_DevicePllInit();
@@ -369,13 +368,13 @@ usb_device_composite_struct_t* composite_init(userCbFunc callback, void* userArg
         g_MtpClassHandle  = g_CompositeClassConfig[0].classHandle;
         g_VComClassHandle = g_CompositeClassConfig[1].classHandle;
 
-        if (MtpInit(&composite.mtpApp, g_MtpClassHandle) != kStatus_USB_Success) {
+        if (MtpInit(&composite.mtpApp, g_MtpClassHandle,mtpRoot) != kStatus_USB_Success) {
             log_error("[Composite] MTP initialization failed");
         }
 #else
         g_VComClassHandle = g_CompositeClassConfig[0].classHandle;
 #endif
-        if (VirtualComInit(&composite.cdcVcom, g_VComClassHandle, callback, userArg) !=
+        if (VirtualComInit(&composite.cdcVcom, g_VComClassHandle, callback, (void*)serialNumber) !=
             kStatus_USB_Success) {
             log_error("[Composite] VirtualCom initialization failed");
         }
