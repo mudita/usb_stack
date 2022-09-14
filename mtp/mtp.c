@@ -296,6 +296,12 @@ static void MtpTask(void *handle)
             continue;
         }
 
+        if (mtpApp->is_blocked) {
+            log_debug("[MTP] Wait for unlock security");
+            xSemaphoreTake(mtpApp->lock, portMAX_DELAY);
+            continue;
+        }
+
         xMessageBufferReset(mtpApp->inputBox);
         xMessageBufferReset(mtpApp->outputBox);
         mtp_responder_transaction_reset(mtpApp->responder);
@@ -382,6 +388,8 @@ usb_status_t MtpInit(usb_mtp_struct_t *mtpApp, class_handle_t classHandle, const
 {
     mtpApp->configured = false;
     mtpApp->is_terminated = false;
+    // we block the task until security is unlocked
+    mtpApp->is_blocked = true;
     mtpApp->classHandle = classHandle;
 
     if ((mtpApp->join = xSemaphoreCreateBinary())  == NULL) {
@@ -393,6 +401,10 @@ usb_status_t MtpInit(usb_mtp_struct_t *mtpApp, class_handle_t classHandle, const
         return kStatus_USB_AllocFail;
     }
     xSemaphoreGive(mtpApp->configuring);
+
+    if ((mtpApp->lock = xSemaphoreCreateBinary())  == NULL) {
+        return kStatus_USB_AllocFail;
+    }
 
     if ((mtpApp->inputBox = xMessageBufferCreate(CONFIG_RX_STREAM_SIZE*sizeof(rx_buffer))) == NULL) {
         return kStatus_USB_AllocFail;
@@ -433,6 +445,12 @@ void MtpDeinit(usb_mtp_struct_t *mtpApp)
         xSemaphoreGive(mtpApp->configuring);
     }
 
+    if (mtpApp->is_blocked)
+    {
+        // We return a semaphore so that the task can execute to the end
+        xSemaphoreGive(mtpApp->lock);
+    }
+
     mtpApp->in_reset = true;
     mtpApp->is_terminated = true;
 
@@ -447,11 +465,13 @@ void MtpDeinit(usb_mtp_struct_t *mtpApp)
     vStreamBufferDelete(mtpApp->inputBox);
     vSemaphoreDelete(mtpApp->join);
     vSemaphoreDelete(mtpApp->configuring);
+    vSemaphoreDelete(mtpApp->lock);
     mtpApp->responder = NULL;
     mtpApp->outputBox = NULL;
     mtpApp->outputBox = NULL;
     mtpApp->join = NULL;
     mtpApp->configuring = NULL;
+    mtpApp->lock = NULL;
     mtpRootPath[0] = '\0';
 
     log_debug("[MTP] Deinitialized");
@@ -504,4 +524,11 @@ void MtpDetached(usb_mtp_struct_t *mtpApp)
     log_debug("[MTP] MTP detached");
     mtpApp->configured = false;
     mtpApp->in_reset = true;
+}
+
+void MtpStart(usb_mtp_struct_t *mtpApp)
+{
+    log_debug("[MTP] security unlocked");
+    mtpApp->is_blocked = false;
+    xSemaphoreGive(mtpApp->lock);
 }

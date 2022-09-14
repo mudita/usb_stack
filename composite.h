@@ -51,6 +51,8 @@ void composite_reinit(usb_device_composite_struct_t *composite, const char *mtpR
 void composite_suspend(usb_device_composite_struct_t *composite);
 void composite_resume(usb_device_composite_struct_t *composite);
 
+void composite_startMTP(usb_device_composite_struct_t *composite);
+
 #if (defined(USB_DEVICE_CONFIG_CHARGER_DETECT) && (USB_DEVICE_CONFIG_CHARGER_DETECT > 0U)) && \
     (defined(FSL_FEATURE_SOC_USB_ANALOG_COUNT) && (FSL_FEATURE_SOC_USB_ANALOG_COUNT > 0U))
 void USB_UpdateHwTick(void);
