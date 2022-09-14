@@ -53,13 +53,8 @@ namespace bsp
 
     int usbInit(const bsp::usbInitParams &initParams)
     {
-        if (!(initParams.queueHandle &&
-              initParams.irqQueueHandle &&
-              initParams.serialNumber)) {
-            log_error("Invalid argument(s): 0x%p/0x%p/0x%p",
-                initParams.queueHandle,
-                initParams.irqQueueHandle,
-                initParams.serialNumber);
+        if (initParams.queueHandle == nullptr or initParams.irqQueueHandle == nullptr) {
+            log_error("Invalid argument(s): 0x%p/0x%p", initParams.queueHandle, initParams.irqQueueHandle);
             return -1;
         }
 
@@ -69,7 +64,7 @@ namespace bsp
         USBReceiveQueue                = initParams.queueHandle;
         USBIrqQueue                    = initParams.irqQueueHandle;
 
-        usbDeviceComposite = composite_init(usbDeviceStateCB, (void*)initParams.serialNumber);
+        usbDeviceComposite = composite_init(usbDeviceStateCB, initParams.serialNumber.c_str(),initParams.rootPath.c_str());
 
         return (usbDeviceComposite == NULL) ? -1 : 0;
     }
@@ -93,15 +88,10 @@ namespace bsp
         composite_deinit(usbDeviceComposite);
     }
 
-    void usbReinit(const char *mtpRoot)
+    void usbReinit(const std::string& rootPath)
     {
         log_debug("usbReinit");
-        if (!mtpRoot || (mtpRoot[0] == '\0'))
-        {
-           log_error("Attempted USB reinit with empty MTP path");
-           return;
-        }
-        composite_reinit(usbDeviceComposite, mtpRoot);
+        composite_reinit(usbDeviceComposite, rootPath.c_str());
     }
 
     void usbSuspend()
@@ -116,7 +106,7 @@ namespace bsp
             return 0;
 
         memset(buffer, 0, SERIAL_BUFFER_LEN);
-        
+
         return VirtualComRecv(&usbDeviceComposite->cdcVcom, buffer, SERIAL_BUFFER_LEN);
     }
 

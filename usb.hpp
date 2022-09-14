@@ -29,7 +29,7 @@ namespace bsp
     int usbCDCSendRaw(const char *dataPtr, size_t dataLen);
     void usbDeviceTask(void *);
     void usbDeinit();
-    void usbReinit(const char *mtpRoot);
+    void usbReinit(const std::string& rootPath);
     void usbSuspend();
 
     /* Callback fired on low level events */
