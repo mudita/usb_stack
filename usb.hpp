@@ -31,7 +31,6 @@ namespace bsp
     void usbDeinit();
     void usbReinit(const std::string& rootPath);
     void usbSuspend();
-    void usbStartMTP();
 
     /* Callback fired on low level events */
     void usbDeviceStateCB(void *, vcomEvent event);

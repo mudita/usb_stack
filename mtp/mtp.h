@@ -18,13 +18,11 @@ typedef struct {
     uint8_t configured;
     uint8_t in_reset;
     uint8_t is_terminated;
-    bool is_blocked;
     size_t usb_buffer_size;
     MessageBufferHandle_t inputBox;
     MessageBufferHandle_t outputBox;
     SemaphoreHandle_t join;
     SemaphoreHandle_t configuring;
-    SemaphoreHandle_t lock;
     TaskHandle_t mtp_task_handle; /* USB MTP task handle */
 } usb_mtp_struct_t;
 
@@ -34,6 +32,5 @@ void MtpReset(usb_mtp_struct_t *mtpApp, uint8_t speed);
 void MtpDeinit(usb_mtp_struct_t *mtpApp);
 usb_status_t MtpReinit(usb_mtp_struct_t *mtpApp, class_handle_t classHandle, const char *mtpRoot);
 void MtpDetached(usb_mtp_struct_t *mtpApp);
-void MtpStart(usb_mtp_struct_t *mtpApp);
 
 #endif /* _MTP_H_ */

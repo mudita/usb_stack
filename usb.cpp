@@ -100,12 +100,6 @@ namespace bsp
     	composite_suspend(usbDeviceComposite);
     }
 
-    void usbStartMTP()
-    {
-        log_debug("mtpStart");
-        composite_startMTP(usbDeviceComposite);
-    }
-
     int usbCDCReceive(void *buffer)
     {
         if (usbDeviceComposite->cdcVcom.inputStream == nullptr)
