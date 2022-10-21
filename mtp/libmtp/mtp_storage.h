@@ -33,17 +33,17 @@ typedef struct mtp_storage_props {
 } mtp_storage_properties_t;
 
 typedef struct mtp_storage_api {
-    const mtp_storage_properties_t* (*get_properties)(void* arg);
+    const mtp_storage_properties_t* (*get_properties)(void *arg);
     uint32_t (*find_first)(void *arg, uint32_t parent, uint32_t *count);
-    uint32_t (*find_next)(void* arg);
-    uint64_t (*get_free_space)(void* arg);
+    uint32_t (*find_next)(void *arg);
+    uint64_t (*get_free_space)(void *arg);
     int (*stat)(void *arg, uint32_t handle, mtp_object_info_t *info);
     int (*rename)(void *arg, uint32_t handle, const char *new_name);
     int (*create)(void *arg, const mtp_object_info_t *info, uint32_t *handle);
     int (*remove)(void *arg, uint32_t handle);
     int (*open)(void *arg, uint32_t handle, const char *mode);
     int (*read)(void *arg, void *buffer, size_t count);
-    int (*write)(void *arg,void *buffer, size_t count);
+    int (*write)(void *arg, const void *buffer, size_t count);
     void (*close)(void *arg);
 } mtp_storage_api_t;
 
