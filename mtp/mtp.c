@@ -31,6 +31,8 @@ USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE) static uint8_t mtp_req
 USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE) static uint8_t mtp_response[sizeof(tx_buffer)];
 USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE) static char mtpRootPath[256];
 
+#define MTP_TASK_STACK_SIZE (3U * 1024U)
+
 static mtp_device_info_t dummy_device = {
     .manufacturer = "Mudita",
     .model = "Pure",
@@ -175,9 +177,13 @@ static usb_status_t OnOutgoingFrameSent(usb_mtp_struct_t* mtpApp, void *param)
 {
     if (mtpApp->configured) {
         log_debug("[MTP] already sent");
+        if (mtpApp->outputBox == NULL) {
+            log_error("[MTP] output stream buffer is NULL!");
+            return kStatus_USB_Error;
+        }
         size_t length = xMessageBufferReceiveFromISR(mtpApp->outputBox, tx_buffer, sizeof(tx_buffer), NULL);
         if (length && USB_DeviceClassMtpSend(mtpApp->classHandle, USB_MTP_BULK_IN_ENDPOINT, tx_buffer, length) != kStatus_USB_Success) {
-            log_debug("[MTP] Dropped outgoing bytes: 0x%d:", (int)length);
+            log_debug("[MTP] Dropped outgoing bytes: 0x%X:", (int)length);
             return kStatus_USB_Error;
         }
     } else {
@@ -407,11 +413,11 @@ usb_status_t MtpInit(usb_mtp_struct_t *mtpApp, class_handle_t classHandle, const
         return kStatus_USB_AllocFail;
     }
 
-    strncpy(mtpRootPath, mtpRoot,sizeof mtpRootPath);
+    strncpy(mtpRootPath, mtpRoot, sizeof(mtpRootPath));
 
     if (xTaskCreate(MtpTask,                  /* pointer to the task */
                     "mtp task",               /* task name for kernel awareness debugging */
-                    3072 / sizeof(portSTACK_TYPE), /* task stack size */
+                    MTP_TASK_STACK_SIZE / sizeof(portSTACK_TYPE), /* task stack size */
                     mtpApp,                   /* optional task startup argument */
                     tskIDLE_PRIORITY,               /* initial priority */
                     &mtpApp->mtp_task_handle        /* optional task handle to create */

@@ -14,10 +14,10 @@ extern "C" {
 #endif
 struct mtp_fs {
     struct mtp_db *db;
-    const char *ROOT;
-    DIR* find_data;
-    FILE* file;
-    char* iobuf;
+    const char *root;
+    DIR *find_data;
+    FILE *file;
+    char *iobuf;
 };
 
 extern const struct mtp_storage_api simple_fs_api;
