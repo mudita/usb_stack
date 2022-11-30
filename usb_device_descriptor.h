@@ -262,4 +262,16 @@ usb_status_t USB_DeviceGetStringDescriptor(usb_device_handle handle,
  */
 uint16_t USB_DeviceSetSerialNumberString(const char *serialNumberAscii);
 
+/*!
+ * @brief USB device set bcdDevice in descriptor function.
+ *
+ * This function sets the bcdVersion the USB device.
+ *
+ * @param handle The USB device handle.
+ * @param version Device version to set in descriptor.
+ *
+ * @return A USB error code or kStatus_USB_Success.
+ */
+uint16_t USB_DeviceSetBcdVersion(usb_device_handle *handle, const uint16_t version);
+
 #endif /* _USB_DEVICE_DESCRIPTOR_H_ */

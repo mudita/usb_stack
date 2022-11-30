@@ -332,7 +332,7 @@ static usb_status_t USB_DeviceCallback(usb_device_handle handle, uint32_t event,
 }
 
 
-usb_device_composite_struct_t* composite_init(userCbFunc callback, const char *serialNumber, const char *mtpRoot)
+usb_device_composite_struct_t* composite_init(userCbFunc callback, const char *serialNumber, const uint16_t bcdDeviceVersion, const char *mtpRoot)
 {
     if (USB_DeviceClockInit() != kStatus_USB_Success) {
         log_error("[Composite] USB Device Clock init failed");
@@ -346,6 +346,8 @@ usb_device_composite_struct_t* composite_init(userCbFunc callback, const char *s
     if (serialNumber && serialNumber[0]) {
         USB_DeviceSetSerialNumberString(serialNumber);
     }
+
+    USB_DeviceSetBcdVersion(&composite.deviceHandle, bcdDeviceVersion);
 
     USB_DevicePllInit();
 

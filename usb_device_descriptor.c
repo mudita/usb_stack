@@ -611,3 +611,21 @@ uint16_t USB_DeviceSetSerialNumberString(const char *serialNumberAscii)
 {
     return USB_DeviceSetStringDescriptor(USB_STRING_SERIAL_NUMBER, serialNumberAscii);
 }
+
+uint16_t USB_DeviceSetBcdVersion(usb_device_handle *handle, const uint16_t version)
+{
+    // Indexes from struct g_UsbDeviceDescriptor
+    const uint16_t bcdDeviceLowIndex  = 12;
+    const uint16_t bcdDeviceHighIndex = 13;
+
+    usb_device_get_device_descriptor_struct_t *device_descriptor =
+        malloc(sizeof(usb_device_get_device_descriptor_struct_t));
+
+    usb_status_t status                           = USB_DeviceGetDeviceDescriptor(&handle, device_descriptor);
+    device_descriptor->buffer[bcdDeviceLowIndex]  = USB_SHORT_GET_LOW(version);
+    device_descriptor->buffer[bcdDeviceHighIndex] = USB_SHORT_GET_HIGH(version);
+
+    free(device_descriptor);
+
+    return status;
+}
