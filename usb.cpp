@@ -64,7 +64,7 @@ namespace bsp
         USBReceiveQueue                = initParams.queueHandle;
         USBIrqQueue                    = initParams.irqQueueHandle;
 
-        usbDeviceComposite = composite_init(usbDeviceStateCB, initParams.serialNumber.c_str(),initParams.rootPath.c_str());
+        usbDeviceComposite = composite_init(usbDeviceStateCB, initParams.serialNumber.c_str(), initParams.deviceVersion, initParams.rootPath.c_str());
 
         return (usbDeviceComposite == NULL) ? -1 : 0;
     }

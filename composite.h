@@ -45,7 +45,7 @@ typedef struct _usb_device_composite_struct
     uint8_t currentInterfaceAlternateSetting[USB_INTERFACE_COUNT]; /* Current alternate setting value for each interface. */
 } usb_device_composite_struct_t;
 
-usb_device_composite_struct_t *composite_init(userCbFunc callback, const char *serialNumber, const char *mtpRoot);
+usb_device_composite_struct_t *composite_init(userCbFunc callback, const char *serialNumber, const uint16_t bcdDeviceVersion,  const char *mtpRoot);
 void composite_deinit(usb_device_composite_struct_t *composite);
 void composite_reinit(usb_device_composite_struct_t *composite, const char *mtpRoot);
 void composite_suspend(usb_device_composite_struct_t *composite);
