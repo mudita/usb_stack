@@ -12,6 +12,8 @@
 #include "usb_device_mtp.h"
 
 #include "usb_device_descriptor.h"
+#include "usb_string_descriptor.h"
+
 #include "composite.h"
 
 #include "mtp_responder.h"
@@ -33,12 +35,16 @@ USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE) static char mtpRootPat
 
 #define MTP_TASK_STACK_SIZE (3U * 1024U)
 
-static mtp_device_info_t dummy_device = {
-    .manufacturer = "Mudita",
-    .model = "Pure",
-    .version = "0.1",
-    .serial = "0123456789ABCDEF0123456789ABCDEF",
-};
+const char *DEVICE_STRING_VALUE[] = {USB_STRINGS(VALUE)};
+static mtp_device_info_t getDevice()
+{
+    const int indexOffset = 1;
+    mtp_device_info_t device = {.manufacturer = DEVICE_STRING_VALUE[USB_STRING_MANUFACTURER - indexOffset],
+                                .model        = DEVICE_STRING_VALUE[USB_STRING_PRODUCT - indexOffset],
+                                .version      = "1",
+                                .serial       = DEVICE_STRING_VALUE[USB_STRING_SERIAL_NUMBER - indexOffset]};
+    return device;
+}
 
 static usb_status_t RescheduleRecv(usb_mtp_struct_t *mtpApp)
 {
@@ -275,7 +281,8 @@ static void MtpTask(void *handle)
     }
 
     mtp_responder_init(mtpApp->responder);
-    if (mtp_responder_set_device_info(mtpApp->responder, &dummy_device)) {
+    const mtp_device_info_t device = getDevice();
+    if (mtp_responder_set_device_info(mtpApp->responder, &device)) {
         log_debug("[MTP] Invalid device info!");
         mtp_fs_free(mtpApp->mtp_fs);
         mtpApp->mtp_fs = NULL;
