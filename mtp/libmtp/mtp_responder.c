@@ -233,8 +233,7 @@ int mtp_responder_set_device_info(mtp_responder_t *mtp,
     if (!info || !info->manufacturer
               || !info->model
               || !info->serial
-              || !info->version
-              || (strlen(info->serial) != 32))
+              || !info->version)
     {
         return -1;
     }
