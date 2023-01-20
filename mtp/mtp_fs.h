@@ -13,7 +13,7 @@
 extern "C" {
 #endif
 struct mtp_fs {
-    struct mtp_db *db;
+    void* db;
     const char *root;
     DIR *find_data;
     FILE *file;
