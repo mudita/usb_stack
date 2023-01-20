@@ -89,7 +89,7 @@ if (ENABLE_USB_MTP)
             mtp/libmtp/mtp_responder.c
             mtp/libmtp/mtp_storage.c
             mtp/libmtp/mtp_util.c
-            mtp/mtp_db.c
+            mtp/mtp_db.cpp
             mtp/mtp_fs.cpp
             mtp/mtp.c
             mtp/usb_device_mtp.c
