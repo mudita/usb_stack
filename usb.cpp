@@ -40,6 +40,10 @@ namespace bsp
         constexpr inline auto usbCDCEchoOffCmdLength = usbCDCEchoOffCmd.length();
 #endif
 
+        void clearUSBSerialBuffer(){
+            memset(usbSerialBuffer,0,sizeof(usbSerialBuffer));
+        }
+
         TimerHandle_t usbTick;
         void usbUpdateTick(TimerHandle_t)
         {
@@ -58,6 +62,7 @@ namespace bsp
             return -1;
         }
 
+        clearUSBSerialBuffer();
         usbTick = xTimerCreate(
             "usbHWTick", pdMS_TO_TICKS(1), true, nullptr, usbUpdateTick);
 
@@ -91,6 +96,7 @@ namespace bsp
     void usbReinit(const std::string& rootPath)
     {
         log_debug("usbReinit");
+        clearUSBSerialBuffer();
         composite_reinit(usbDeviceComposite, rootPath.c_str());
     }
 
