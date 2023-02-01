@@ -34,7 +34,7 @@ namespace mtp
         return false;
     }
     DatabaseEntry::DatabaseEntry(const Handle handle, std::filesystem::path filename)
-        : handle{handle}, filename{filename}
+        : handle{handle}, filename{std::move(filename)}
     {}
     DatabaseEntry::DatabaseEntry(const Handle handle) : handle{handle}
     {}

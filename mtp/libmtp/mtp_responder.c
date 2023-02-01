@@ -7,17 +7,17 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
-#include <stdlib.h>
 
 #include "defines.h"
 #include "mtp_responder.h"
 #include "mtp_container.h"
 #include "mtp_storage.h"
 #include "mtp_dataset.h"
-#include "mtp_util.h"
 
-#   define log_info(...) while(0) {}
-#   define log_error(...) while(0) {}
+#define log_info(...) while(0) {}
+#define log_error(...) while(0) {}
+
+#define UNUSED(x) do { (void)(x); } while (0)
 
 struct mtp_responder
 {
@@ -101,8 +101,9 @@ static const char* dbg_operation(uint16_t op)
     const dbg_map_entry_t *e = ops;
     while(e->id != 0)
     {
-        if (e->id == op)
+        if (e->id == op) {
             return e->text;
+        }
         e++;
     }
     return "Operation not found!";
@@ -135,8 +136,9 @@ static const char* dbg_event(uint16_t event)
     const dbg_map_entry_t *e = events;
     while(e->id != 0)
     {
-        if (e->id == event)
+        if (e->id == event) {
             return e->text;
+        }
         e++;
     }
     return "Event not found!";
@@ -194,8 +196,9 @@ static const char* dbg_result(uint16_t result)
     const dbg_map_entry_t *e = results;
     while(e->id != 0)
     {
-        if (e->id == result)
+        if (e->id == result) {
             return e->text;
+        }
         e++;
     }
     return "Result not found!";
@@ -247,8 +250,9 @@ int mtp_responder_set_storage(mtp_responder_t *mtp,
         void *api_arg)
 {
     assert(mtp && api);
-    if (!storage_id || !api)
+    if (!storage_id || !api) {
         return -1;
+    }
     mtp->storage.api = api;
     mtp->storage.id = storage_id;
     mtp->storage.api_arg = api_arg;
@@ -265,8 +269,9 @@ static void set_data_header(mtp_responder_t *mtp)
 
 static uint16_t operation_open_session(mtp_responder_t *mtp, const mtp_op_cntr_t *request)
 {
-    if (mtp_container_get_param_count(request) > 0)
+    if (mtp_container_get_param_count(request) > 0) {
         mtp->session_id = request->parameter[0];
+    }
 
     mtp->session_open = true;
     return MTP_RESPONSE_OK;
@@ -274,17 +279,21 @@ static uint16_t operation_open_session(mtp_responder_t *mtp, const mtp_op_cntr_t
 
 static uint16_t operation_get_device_info(mtp_responder_t *mtp, const mtp_op_cntr_t *request)
 {
-  uint8_t *payload = (uint8_t *)mtp->cntr->payload;
-  uint32_t total = serialize_device_info(mtp->device_info, payload);
-  mtp->transaction.total = total;
-  mtp->transaction.in_buffer = total;
+    uint8_t *payload = (uint8_t *)mtp->cntr->payload;
+    uint32_t total = serialize_device_info(mtp->device_info, payload);
+    UNUSED(request);
 
-  return MTP_RESPONSE_OK;
+    mtp->transaction.total = total;
+    mtp->transaction.in_buffer = total;
+
+    return MTP_RESPONSE_OK;
 }
 
 static uint16_t operation_close_session(mtp_responder_t *mtp, const mtp_op_cntr_t *request)
 {
     uint16_t error;
+    UNUSED(request);
+
     if (mtp->session_open)
     {
         mtp->session_open = false;
@@ -299,12 +308,14 @@ static uint16_t operation_close_session(mtp_responder_t *mtp, const mtp_op_cntr_
 
 static uint16_t operation_get_storage_ids(mtp_responder_t *mtp, const mtp_op_cntr_t *request)
 {
-  uint8_t *payload = (uint8_t *)mtp->cntr->payload;
-  uint32_t total = serialize_storage_ids(&mtp->storage, 1, payload);
-  mtp->transaction.total = total;
-  mtp->transaction.in_buffer = total;
+    uint8_t *payload = (uint8_t *)mtp->cntr->payload;
+    uint32_t total = serialize_storage_ids(&mtp->storage, 1, payload);
+    UNUSED(request);
 
-  return MTP_RESPONSE_OK;
+    mtp->transaction.total = total;
+    mtp->transaction.in_buffer = total;
+
+    return MTP_RESPONSE_OK;
 }
 
 static uint16_t operation_get_storage_info(mtp_responder_t *mtp, const mtp_op_cntr_t *request)
@@ -314,11 +325,11 @@ static uint16_t operation_get_storage_info(mtp_responder_t *mtp, const mtp_op_cn
 
     if (storageID == mtp->storage.id)
     {
-      uint8_t *payload = (uint8_t *)mtp->cntr->payload;
-      uint32_t total = serialize_storage_info(&mtp->storage, payload);
-      mtp->transaction.total = total;
-      mtp->transaction.in_buffer = total;
-      error = MTP_RESPONSE_OK;
+        uint8_t *payload = (uint8_t *)mtp->cntr->payload;
+        uint32_t total = serialize_storage_info(&mtp->storage, payload);
+        mtp->transaction.total = total;
+        mtp->transaction.in_buffer = total;
+        error = MTP_RESPONSE_OK;
     }
     else
     {
@@ -380,7 +391,8 @@ static uint16_t operation_get_object_handles(mtp_responder_t *mtp, const mtp_op_
             *ptr++ = handle;
         }
         mtp->transaction.in_buffer = (1 + fit_to_buf) * sizeof(uint32_t);
-    } else {
+    }
+    else {
         mtp->transaction.in_buffer = (1) * sizeof(uint32_t);
     }
 
@@ -506,7 +518,7 @@ static uint16_t operation_set_object_prop_value(mtp_responder_t *mtp,
     }
 
     mtp->transaction.handle = obj_handle;
-    mtp->transaction.prop_code = prop_code;;
+    mtp->transaction.prop_code = prop_code;
     error = 0;
 
 set_object_prop_value_exit:
@@ -555,22 +567,13 @@ get_object_exit:
 static uint16_t operation_delete_object(mtp_responder_t *mtp,
         const mtp_op_cntr_t *request)
 {
-    uint16_t error;
+    uint16_t error = MTP_RESPONSE_OK;
     uint32_t obj_handle = request->parameter[0];
 
-    if (!obj_handle)
-    {
+    if (!obj_handle || mtp->storage.api->remove(mtp->storage.api_arg, obj_handle) != 0) {
         error = MTP_RESPONSE_INVALID_OBJECT_HANDLE;
-        goto delete_object_exit;
     }
-    if (mtp->storage.api->remove(mtp->storage.api_arg, obj_handle))
-    {
-        error = MTP_RESPONSE_INVALID_OBJECT_HANDLE;
-        goto delete_object_exit;
-    }
-    error = MTP_RESPONSE_OK;
 
-delete_object_exit:
     return error;
 }
 
@@ -580,7 +583,7 @@ static uint16_t operation_send_object_info(mtp_responder_t *mtp,
     uint16_t error;
     uint32_t storage_id = request->parameter[0];
     uint32_t parent_handle = request->parameter[1];
-    (void)parent_handle;
+    UNUSED(parent_handle);
 
     if (storage_id == mtp->storage.id)
     {
@@ -598,11 +601,14 @@ static uint16_t operation_send_object(mtp_responder_t *mtp,
         const mtp_op_cntr_t *request)
 {
     uint16_t error = 0;
+    UNUSED(request);
+
     /* TODO: restore open mode, we're opening for write. */
     if (mtp->storage.api->open(mtp->storage.api_arg, mtp->transaction.handle, "w+"))
     {
         error = MTP_RESPONSE_STORE_NOT_AVAILABLE;
-    } else {
+    }
+    else {
         mtp->transaction.file_open = true;
     }
 
@@ -675,24 +681,39 @@ static uint16_t handle_command(mtp_responder_t *mtp, const mtp_op_cntr_t *reques
             log_error("Operation %s not supported\n", dbg_operation(request->header.operation_code));
     }
 
-
     return error;
 }
 
 
-static uint16_t data_set_object_prop_value(mtp_responder_t *mtp, const mtp_data_cntr_t* incoming, size_t size)
+static uint16_t data_set_object_prop_value(mtp_responder_t *mtp, const mtp_data_cntr_t *incoming, size_t size)
 {
-    char name[64];
-    uint16_t error;
-    if (!deserialize_object_prop_value(mtp->transaction.prop_code, incoming->payload, name)
-            || mtp->storage.api->rename(mtp->storage.api_arg, mtp->transaction.handle, name))
-    {
-        error = MTP_RESPONSE_INVALID_OBJECT_PROP_VALUE;
-        goto data_set_object_prop_value_exit;
-    }
-    error = MTP_RESPONSE_OK;
+    char name[128];
+    uint16_t error = MTP_RESPONSE_OK;
+    UNUSED(size);
 
-data_set_object_prop_value_exit:
+    do {
+        int ret = deserialize_object_prop_value(mtp->transaction.prop_code, incoming->payload, name);
+        if (ret == 0) {
+            error = MTP_RESPONSE_INVALID_OBJECT_PROP_VALUE;
+            break;
+        }
+
+        /* TODO for now only rename is handled */
+        switch (mtp->transaction.prop_code) {
+            case MTP_PROPERTY_OBJECT_FILE_NAME:
+                ret = mtp->storage.api->rename(mtp->storage.api_arg, mtp->transaction.handle, name);
+                if (ret) {
+                    error = MTP_RESPONSE_INVALID_OBJECT_PROP_VALUE;
+                }
+                break;
+
+            default:
+                log_error("Unhandled property code: 0x%04X", mtp->transaction.prop_code);
+                break;
+        }
+
+    } while (0);
+
     return error;
 }
 
@@ -702,6 +723,7 @@ static uint16_t data_send_object_info(mtp_responder_t *mtp, const mtp_data_cntr_
     mtp_object_info_t info;
     uint32_t obj_handle = 0;
     size_t plen = incoming->header.length - MTP_CONTAINER_HEADER_SIZE;
+    UNUSED(size);
 
     if (deserialize_object_info(incoming->payload, plen, &info))
     {
@@ -844,8 +866,9 @@ size_t mtp_responder_get_data(mtp_responder_t *mtp)
             for (i = 0; i < available; i++, ptr++)
             {
                 *ptr = mtp->storage.api->find_next(mtp->storage.api_arg);
-                if (*ptr == 0)
+                if (*ptr == 0) {
                     break;
+                }
             }
             cntr_length = i * sizeof(uint32_t);
             mtp->transaction.sent += cntr_length;
@@ -913,7 +936,7 @@ uint16_t mtp_responder_set_data(mtp_responder_t *mtp, void *incoming, size_t siz
         mtp->transaction.file_open = false;
         mtp->transaction.keep = false;
 
-        log_error("DT< %s Wrrite error", dbg_operation(mtp->transaction.opcode));
+        log_error("DT< %s Write error", dbg_operation(mtp->transaction.opcode));
         goto mtp_responder_receive_data_exit;
     }
 
@@ -945,8 +968,9 @@ void mtp_responder_get_response(mtp_responder_t *mtp, uint16_t code, void *data_
 
     memset(response->parameter, 0, 5*sizeof(uint32_t));
 
-    if (code == MTP_RESPONSE_TRANSACTION_CANCELLED)
+    if (code == MTP_RESPONSE_TRANSACTION_CANCELLED) {
         log_info("CANCELED TID: %x", (unsigned int) mtp->transaction.id);
+    }
 
     if (mtp->transaction.handle)
     {
@@ -963,6 +987,7 @@ void mtp_responder_get_response(mtp_responder_t *mtp, uint16_t code, void *data_
 void mtp_responder_get_event(mtp_responder_t *mtp, uint16_t code, void *data_out, size_t *size)
 {
     assert(mtp && data_out && size);
+    UNUSED(mtp);
 
     mtp_event_t *event = (mtp_event_t*)data_out;
 
