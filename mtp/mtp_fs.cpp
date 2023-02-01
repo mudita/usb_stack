@@ -36,6 +36,7 @@ namespace
         .volume_id   = "1234567890abcdef",
     };
 
+    constexpr auto bytes_per_mebibyte = 1024U * 1024U;
     constexpr auto iobuf_size = 64U * 1024U; // 64kB
 
     bool is_dot(const char *name)
@@ -73,8 +74,8 @@ namespace
             disk_properties.capacity              = capacity;
 
             log_debug("Capacity: %u MiB, free: %u MiB",
-                      static_cast<unsigned>(capacity / 1024 / 1024),
-                      static_cast<unsigned>(freeSpace / 1024 / 1024));
+                      static_cast<unsigned>(capacity / bytes_per_mebibyte),
+                      static_cast<unsigned>(freeSpace / bytes_per_mebibyte));
         }
         else {
             log_debug("Failed to vfsstat %s, error %d", fs->root, errno);
@@ -92,7 +93,7 @@ namespace
 
         if (const auto ret = statvfs(fs->root, &stvfs); ret == 0) {
             freeSpace = stvfs.f_bavail * stvfs.f_bsize;
-            log_debug("Free space: %u MiB", static_cast<unsigned>(freeSpace / 1024 / 1024));
+            log_debug("Free space: %u MiB", static_cast<unsigned>(freeSpace / bytes_per_mebibyte));
         }
         else {
             log_debug("Failed to vfsstat %s, error %d", fs->root, errno);
@@ -189,7 +190,7 @@ namespace
             return -1;
         }
 
-        log_debug("[%u]: get info for %s", static_cast<unsigned int>(handle), filename->c_str());
+        log_debug("[%u]: get info for %s", static_cast<unsigned>(handle), filename->c_str());
         const auto absolutePath = std::string(fs->root) / *filename;
 
         if (stat(absolutePath.c_str(), &statbuf) == 0) {
@@ -205,7 +206,7 @@ namespace
             return 0;
         }
 
-        log_error("[%u]: stat error %s: %d", static_cast<unsigned int>(handle), filename->c_str(), errno);
+        log_error("[%u]: stat error %s: %d", static_cast<unsigned>(handle), filename->c_str(), errno);
         return -1;
     }
 
@@ -349,7 +350,7 @@ extern "C" const struct mtp_storage_api simple_fs_api = {.get_properties = get_d
 
 extern "C" struct mtp_fs *mtp_fs_alloc(void *mtpRootPath)
 {
-    auto *fs = static_cast<struct mtp_fs *>(calloc(1, sizeof(struct mtp_fs)));
+    const auto fs = static_cast<struct mtp_fs *>(calloc(1, sizeof(struct mtp_fs)));
     if (fs != NULL) {
         fs->db = static_cast<void *>(new mtp::FileDatabase);
         if (fs->db == NULL) {

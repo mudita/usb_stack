@@ -99,11 +99,12 @@ uint32_t serialize_object_props_supported(uint8_t *data)
     uint16_t *item;
     uint32_t length = 0;
 
-    item = (uint16_t*)(data + 4);
-    for(i = 0; i < properties_num; i++)
+    item = (uint16_t *)(data + 4);
+    for (i = 0; i < properties_num; i++) {
         item[i] = properties[i].id;
-    *(uint32_t*)data = properties_num;
-    length=  4 + 2*properties_num;
+    }
+    *(uint32_t *)data = properties_num;
+    length = 4 + 2 * properties_num;
     return length;
 }
 
@@ -338,5 +339,4 @@ int deserialize_object_prop_value(uint16_t prop_code, const uint8_t *data, void 
         }
     }
     return length;
-
 }
