@@ -37,7 +37,7 @@ namespace
     };
 
     constexpr auto bytes_per_mebibyte = 1024U * 1024U;
-    constexpr auto iobuf_size = 64U * 1024U; // 64kB
+    constexpr auto iobuf_size         = 64U * 1024U;
 
     bool is_dot(const char *name)
     {
@@ -222,19 +222,21 @@ namespace
         const auto old_abs = std::string(fs->root) / *filename;
         const auto new_abs = std::string(fs->root) / std::filesystem::path(new_name);
 
-        const auto status = rename(old_abs.c_str(), new_abs.c_str());
-        if (status == 0) {
-            from_raw(fs->db).update(handle, new_name);
-            log_debug("[%u]: rename: %s -> %s", static_cast<unsigned>(handle), old_abs.c_str(), new_abs.c_str());
-        }
-        else {
+        if (const auto status = rename(old_abs.c_str(), new_abs.c_str()); status != 0) {
             log_error("[%u]: rename: %s -> %s FAILED, err: %d",
                       static_cast<unsigned>(handle),
                       filename->c_str(),
                       new_name,
                       status);
+            return status;
         }
-        return status;
+        if (not from_raw(fs->db).update(handle, new_name)) {
+            log_error("[%u]: invalid handle, new name %s", static_cast<unsigned>(handle), new_name);
+            return -1;
+        }
+
+        log_debug("[%u]: rename: %s -> %s", static_cast<unsigned>(handle), old_abs.c_str(), new_abs.c_str());
+        return 0;
     }
 
     int fs_create(void *arg, const mtp_object_info_t *info, uint32_t *handle)
@@ -246,7 +248,7 @@ namespace
             return -1;
         }
         if (const auto new_handle = from_raw(fs->db).insert(info->filename)) {
-            log_debug("[%u]: created: %s", static_cast<unsigned>(*handle), info->filename);
+            log_debug("[%u]: created: %s", static_cast<unsigned>(*new_handle), info->filename);
             *handle = *new_handle;
             return 0;
         }
@@ -310,7 +312,13 @@ namespace
         if (fs->file == nullptr) {
             return -1;
         }
-        return std::fread(buffer, 1, count, fs->file) == count ? 0 : -1;
+
+        if (const auto read = std::fread(buffer, 1, count, fs->file); read != count and ferror(fs->file) != 0) {
+            return -1;
+        }
+        else {
+            return static_cast<int>(read);
+        }
     }
 
     int fs_write(void *arg, const void *buffer, size_t count)
