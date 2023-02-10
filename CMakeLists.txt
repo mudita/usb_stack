@@ -133,3 +133,5 @@ target_link_libraries(usb_stack
         module-bsp
         module-os
 )
+
+set_source_files_properties(mtp/libmtp/mtp_responder.c PROPERTIES COMPILE_OPTIONS "-O0;-fno-omit-frame-pointer;-ggdb3")
