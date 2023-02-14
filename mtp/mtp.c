@@ -3,11 +3,8 @@
  * Unauthorized copying of this file, via any medium is strictly prohibited
  * Proprietary and confidential
  */
-#include "usb_device_config.h"
 #include "usb.h"
-#include "usb_phy.h"
 #include "usb_device.h"
-#include "usb_device_ch9.h"
 #include "usb_device_class.h"
 #include "usb_device_mtp.h"
 
@@ -107,22 +104,21 @@ static usb_status_t USBSend(usb_mtp_struct_t *mtpApp, void *buffer, size_t lengt
 static size_t Send(usb_mtp_struct_t *mtpApp, void *buffer, size_t length)
 {
     size_t sent = 0;
-    if (!mtpApp->configured || !length)
+    if (!mtpApp->configured || !length) {
         return kStatus_USB_InvalidParameter;
+    }
+
+    log_debug("[MTP] want to send: %dB", (int)length);
 
     taskENTER_CRITICAL();
-
-    log_debug("[MTP] want to send: %d", (int)length);
-
     if (xMessageBufferIsEmpty(mtpApp->outputBox)) {
-
         taskEXIT_CRITICAL();
 
         size_t send_now = (length < mtpApp->usb_buffer_size) ? length : mtpApp->usb_buffer_size;
         size_t remaining = (length - send_now);
         size_t buffered;
 
-        if (remaining) {
+        if (remaining > 0) {
             buffered = SliceToStream(mtpApp, &((uint8_t*)buffer)[mtpApp->usb_buffer_size], remaining);
             sent = send_now + buffered;
         } else {
@@ -136,13 +132,14 @@ static size_t Send(usb_mtp_struct_t *mtpApp, void *buffer, size_t length)
             log_debug("[MTP] FATAL: Couldn't send data");
             sent = 0;
         }
-    } else {
-        // fill buffer up
+    }
+    else {
         taskEXIT_CRITICAL();
+        // fill buffer up
         log_debug("[MTP] TX is busy and we want to queue more data");
     }
 
-    log_debug("[MTP] accepted to send: %d", (int)sent);
+    log_debug("[MTP] accepted to send: %dB", (int)sent);
     return sent;
 }
 
