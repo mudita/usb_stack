@@ -9,6 +9,8 @@
 #include <stdint.h>
 #include <time.h>
 
+#define MTP_STORAGE_FILENAME_LENGTH (255 + 1)
+
 typedef struct mtp_object_info {
     uint32_t storage_id;
     time_t created;
@@ -20,7 +22,7 @@ typedef struct mtp_object_info {
     uint32_t parent;
     uint64_t size;
     uint8_t uuid[16];
-    char filename[64];
+    char filename[MTP_STORAGE_FILENAME_LENGTH];
 } mtp_object_info_t;
 
 typedef struct mtp_storage_props {
@@ -61,7 +63,7 @@ uint32_t serialize_object_info(mtp_object_info_t* info, uint8_t *data);
 uint32_t serialize_object_props_supported(uint8_t *data);
 uint32_t serialize_object_prop_desc(uint16_t prop_code, uint8_t *data);
 uint32_t serialize_object_prop_value(uint16_t prop_code, mtp_object_info_t *info, uint8_t *data);
-int deserialize_object_prop_value(uint16_t prop_code, const uint8_t *data, void *value);
+int deserialize_object_prop_value(uint16_t prop_code, const uint8_t *data, void *value, int value_size);
 
 int deserialize_object_info(const uint8_t *data, size_t length, mtp_object_info_t *info);
 

@@ -30,7 +30,7 @@ static const obj_property_t properties[] =
     { MTP_PROPERTY_PARENT_OBJECT,    MTP_TYPE_UINT32, false, 0, offsetof(mtp_object_info_t, parent)},
     { MTP_PROPERTY_OBJECT_FILE_NAME, MTP_TYPE_STR,    true,  0, offsetof(mtp_object_info_t, filename)},
 };
-static const int properties_num = sizeof(properties)/sizeof(obj_property_t);
+static const int properties_num = sizeof(properties) / sizeof(obj_property_t);
 
 uint32_t serialize_storage_list(mtp_storage_t *storage, uint32_t parent, uint8_t *data)
 {
@@ -76,20 +76,34 @@ uint32_t serialize_object_info(mtp_object_info_t* info, uint8_t *data)
 int deserialize_object_info(const uint8_t *data, size_t length, mtp_object_info_t *info)
 {
     const uint8_t *ptr = data;
+    int returned_length;
     info->storage_id = *(uint32_t*)ptr; ptr += 4;
     info->format_code = *(uint16_t*)ptr; ptr += 2;
     info->protection =  *(uint16_t*)ptr; ptr += 2;
     info->size = *(uint32_t*)ptr; ptr += 4;
-    ptr += 1*sizeof(uint16_t);
-    ptr += 6*sizeof(uint32_t);
+    ptr += 1 * sizeof(uint16_t);
+    ptr += 6 * sizeof(uint32_t);
     info->parent = *(uint32_t*)ptr; ptr += 4;
     info->association_type =  *(uint16_t*)ptr; ptr += 2;
     info->association_desc = *(uint32_t*)ptr; ptr += 4;
     ptr += sizeof(uint32_t);
-    ptr += get_string(ptr, info->filename, sizeof(info->filename));
-    ptr += get_date(ptr, &info->created);
-    ptr += get_date(ptr, &info->modified);
-    // TODO: lenght check
+
+    returned_length = get_string(ptr, info->filename, sizeof(info->filename));
+    if (returned_length <= 0) {
+        return -1;
+    }
+    ptr += returned_length;
+
+    returned_length = get_date(ptr, &info->created);
+    if (returned_length > 0) {
+        ptr += returned_length;
+    }
+
+    returned_length = get_date(ptr, &info->modified);
+    if (returned_length > 0) {
+        ptr += returned_length;
+    }
+    
     return 0;
 }
 
@@ -197,7 +211,7 @@ static uint32_t serialize_type_desc_str(const obj_property_t *prop, uint8_t *dat
     return 11;
 }
 
-uint32_t serialize_type_desc(const obj_property_t* prop, uint8_t *data)
+static uint32_t serialize_type_desc(const obj_property_t* prop, uint8_t *data)
 {
     uint32_t length = 0;
     switch(prop->type)
@@ -275,7 +289,7 @@ static uint32_t serialize_type_value_str(const obj_property_t *prop, mtp_object_
     return length;
 }
 
-uint32_t serialize_prop_value(const obj_property_t *prop, mtp_object_info_t *info, uint8_t *data)
+static uint32_t serialize_prop_value(const obj_property_t *prop, mtp_object_info_t *info, uint8_t *data)
 {
     uint32_t length = 0;
     switch(prop->type)
@@ -314,27 +328,27 @@ uint32_t serialize_object_prop_value(uint16_t prop_code, mtp_object_info_t *info
     return length;
 }
 
-uint32_t deserialize_prop_value(const obj_property_t *prop, const uint8_t *data, void *value)
+static int deserialize_prop_value(const obj_property_t *prop, const uint8_t *data, void *value, int value_size)
 {
-    uint32_t length = 0;
-    switch(prop->type)
+    int length = 0;
+    switch (prop->type)
     {
         case MTP_TYPE_STR:
-            length = get_string(data, value, 64);
+            length = get_string(data, value, value_size);
             break;
     }
     return length;
 }
 
-int deserialize_object_prop_value(uint16_t prop_code, const uint8_t *data, void *value)
+int deserialize_object_prop_value(uint16_t prop_code, const uint8_t *data, void *value, int value_size)
 {
-    uint32_t length = 0;
+    int32_t length = 0;
     int i;
-    for(i = 0; i < properties_num; i++)
+    for (i = 0; i < properties_num; i++)
     {
         if (properties[i].id == prop_code && properties[i].writeable)
         {
-            length += deserialize_prop_value(&properties[i], data, value);
+            length += deserialize_prop_value(&properties[i], data, value, value_size);
             break;
         }
     }
