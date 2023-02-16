@@ -13,9 +13,7 @@
 #include "mtp_container.h"
 #include "mtp_storage.h"
 #include "mtp_dataset.h"
-
-#define log_info(...) while(0) {}
-#define log_error(...) while(0) {}
+#include "log.hpp"
 
 #define UNUSED(x) do { (void)(x); } while (0)
 
@@ -687,13 +685,14 @@ static uint16_t handle_command(mtp_responder_t *mtp, const mtp_op_cntr_t *reques
 
 static uint16_t data_set_object_prop_value(mtp_responder_t *mtp, const mtp_data_cntr_t *incoming, size_t size)
 {
-    char name[128];
+    char name[MTP_STORAGE_FILENAME_LENGTH];
     uint16_t error = MTP_RESPONSE_OK;
     UNUSED(size);
 
     do {
-        int ret = deserialize_object_prop_value(mtp->transaction.prop_code, incoming->payload, name);
-        if (ret == 0) {
+        int ret = deserialize_object_prop_value(mtp->transaction.prop_code, incoming->payload, name, sizeof(name));
+        if (ret <= 0) {
+            log_error("Failed to deserialize object property value, retcode %d!", ret);
             error = MTP_RESPONSE_INVALID_OBJECT_PROP_VALUE;
             break;
         }

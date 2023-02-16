@@ -67,25 +67,26 @@ int put_string(uint8_t *buffer, const char *text)
     *utf16 = 0;
 
     /* add null termination char, each char is 2 bytes, 1 byte for string length */
-    return (length + 1)*sizeof(uint16_t) + 1;
+    return 1 + ((length + 1) * sizeof(uint16_t));
 }
 
 int get_string(const uint8_t *buffer, char *text, int length)
 {
-    uint8_t parsed_len = *buffer;
-    uint16_t *unicode = (uint16_t*)&buffer[1];
+    uint8_t parsed_len = buffer[0];
+    uint16_t *unicode = (uint16_t *)&buffer[1];
     int i;
 
-    if (parsed_len > length)
+    if (parsed_len > length) {
         return -1;
+    }
 
-    for(i = 0; i < parsed_len; i++)
+    for (i = 0; i < parsed_len; i++)
     {
-        text[i] = *(char*)unicode;
+        text[i] = *(char *)unicode;
         unicode++;
     }
 
-    return 1 + parsed_len*2;
+    return 1 + (parsed_len * sizeof(uint16_t));
 }
 
 int put_date(uint8_t *buffer, time_t time)
