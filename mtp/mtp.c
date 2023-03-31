@@ -299,6 +299,7 @@ static void MtpTask(void *handle)
         mtp_responder_transaction_reset(mtpApp->responder);
 
         log_debug("[MTP] Ready");
+        if (mtpApp->is_locked) { log_debug("[MTP] security locked - MTP access denied"); }
 
         mtpApp->in_reset = false;
 
@@ -311,6 +312,12 @@ static void MtpTask(void *handle)
 
             if (request_len == 0) {
                 log_debug("[MTP] Expected MTP message. Reset: %s", mtpApp->in_reset ? "true" : "false");
+                continue;
+            }
+
+            if (mtpApp->is_locked) {
+                log_debug("[MTP] Wait for unlock security");
+                send_response(mtpApp, MTP_RESPONSE_ACCESS_DENIED);
                 continue;
             }
 
@@ -379,6 +386,7 @@ usb_status_t MtpInit(usb_mtp_struct_t *mtpApp, class_handle_t classHandle, const
 {
     mtpApp->configured    = false;
     mtpApp->is_terminated = false;
+    mtpApp->is_locked     = true;
     mtpApp->classHandle   = classHandle;
 
     if ((mtpApp->join = xSemaphoreCreateBinary()) == NULL) {
@@ -469,4 +477,10 @@ void MtpDetached(usb_mtp_struct_t *mtpApp)
     log_debug("[MTP] MTP detached");
     mtpApp->configured = false;
     mtpApp->in_reset   = true;
+}
+
+void MtpUnlock(usb_mtp_struct_t *mtpApp)
+{
+    log_debug("[MTP] security unlocked - MTP access granted");
+    mtpApp->is_locked = false;
 }
