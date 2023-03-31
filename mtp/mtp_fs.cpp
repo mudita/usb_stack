@@ -248,7 +248,7 @@ namespace
             return -1;
         }
         if (const auto new_handle = from_raw(fs->db).insert(info->filename)) {
-            log_debug("[%u]: created: %s", static_cast<unsigned>(*new_handle), info->filename);
+            log_debug("[%lu]: created: %s", static_cast<unsigned long>(new_handle), info->filename);
             *handle = new_handle;
             return 0;
         }

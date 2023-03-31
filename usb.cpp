@@ -114,6 +114,12 @@ namespace bsp
         composite_deinit(usbDeviceComposite);
     }
 
+    void usbUnlockMTP()
+    {
+        log_debug("mtpUnlock");
+        MtpUnlock(&usbDeviceComposite->mtpApp);
+    }
+
     int usbCDCReceive(void *buffer)
     {
         if (usbDeviceComposite->cdcVcom.inputStream == nullptr) {
