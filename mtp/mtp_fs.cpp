@@ -138,7 +138,7 @@ namespace
         }
 
         const auto new_handle = from_raw(fs->db).insert(de->d_name);
-        return new_handle ? *new_handle : 0;
+        return new_handle;
     }
 
     uint32_t fs_find_next(void *arg)
@@ -150,7 +150,7 @@ namespace
                 continue;
             }
             const auto new_handle = from_raw(fs->db).insert(de->d_name);
-            return new_handle ? *new_handle : 0;
+            return new_handle;
         }
         log_debug("Done, no more files");
         return 0;
@@ -249,7 +249,7 @@ namespace
         }
         if (const auto new_handle = from_raw(fs->db).insert(info->filename)) {
             log_debug("[%u]: created: %s", static_cast<unsigned>(*new_handle), info->filename);
-            *handle = *new_handle;
+            *handle = new_handle;
             return 0;
         }
         log_error("Can't create a new object: %s", info->filename);
@@ -368,7 +368,6 @@ extern "C" struct mtp_fs *mtp_fs_alloc(void *mtpRootPath)
 
         fs->root = (const char *)mtpRootPath;
         log_debug("[]: initializing MTP root at %s", fs->root);
-
         fs->find_data = opendir(fs->root);
         if (fs->find_data == NULL) {
             mtp_fs_free(fs);
@@ -382,6 +381,9 @@ extern "C" void mtp_fs_free(struct mtp_fs *fs)
 {
     if (fs->db != nullptr) {
         delete static_cast<mtp::FileDatabase *>(fs->db);
+    }
+    if (fs->find_data != NULL) {
+        closedir(fs->find_data);
     }
     free(fs);
 }
