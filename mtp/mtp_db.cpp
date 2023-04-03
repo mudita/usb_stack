@@ -1,57 +1,77 @@
 // Copyright (c) 2017-2023, Mudita Sp. z.o.o. All rights reserved.
 // For licensing, see https://github.com/mudita/MuditaOS/LICENSE.md
 
+#include <algorithm>
 #include "mtp_db.hpp"
 
 namespace mtp
 {
+    namespace filename_to_handle
+    {
+        inline Handle &getHandle(PathToHandleMap::iterator iter)
+        {
+            return iter->second;
+        }
+    } // namespace filename_to_handle
+
+    namespace handle_to_filename
+    {
+        inline auto &getIter(HandleToInteratorMap::iterator iter)
+        {
+            return iter->second;
+        }
+        inline const Handle &getHandle(HandleToInteratorMap::const_iterator iter)
+        {
+            return iter->first;
+        }
+        inline const std::filesystem::path &getFilename(HandleToInteratorMap::const_iterator iter)
+        {
+            return iter->second->first;
+        }
+
+    } // namespace handle_to_filename
+
     std::optional<std::filesystem::path> FileDatabase::get_filename(Handle handle) const
     {
-        if (const auto result = entries.find(DatabaseEntry{handle}); result != entries.end()) {
-            return result->get_filename();
+        const auto handleToFilenameIter = handleToFilename.find(handle);
+        if (handleToFilenameIter != handleToFilename.end()) {
+            return handle_to_filename::getFilename(handleToFilenameIter);
         }
         return std::nullopt;
     }
     bool FileDatabase::remove(const Handle handle)
     {
-        return entries.erase(DatabaseEntry{handle}) != 0;
+        const auto handleToFilenameIter = handleToFilename.find(handle);
+        if (handleToFilenameIter == handleToFilename.end()) {
+            return false;
+        }
+        filenameToHandle.erase(handle_to_filename::getIter(handleToFilenameIter));
+        handleToFilename.erase(handleToFilenameIter);
+        return true;
     }
-    std::optional<Handle> FileDatabase::insert(const char *filename)
+    Handle FileDatabase::insert(const char *filename)
     {
         static Handle handle_idx = 1;
-        if (const auto result = entries.insert(DatabaseEntry{handle_idx++, filename}); result.second) {
-            return result.first->get_handle();
+
+        const auto entry = filenameToHandle.emplace(filename, handle_idx);
+        if (entry.second) {
+            handleToFilename.emplace(handle_idx, entry.first);
+            ++handle_idx;
         }
-        return std::nullopt;
+        return filename_to_handle::getHandle(entry.first);
     }
     bool FileDatabase::update(const Handle handle, const char *filename)
     {
-        if (const auto result = entries.find(DatabaseEntry{handle}); result != entries.end()) {
-            remove(result->get_handle());
-            entries.insert(DatabaseEntry{result->get_handle(), filename});
-            return true;
+        const auto handleToFilenameIter = handleToFilename.find(handle);
+        if (handleToFilenameIter == handleToFilename.end()) {
+            return false;
         }
-        return false;
-    }
-    DatabaseEntry::DatabaseEntry(const Handle handle, std::filesystem::path filename)
-        : handle{handle}, filename{std::move(filename)}
-    {}
-    DatabaseEntry::DatabaseEntry(const Handle handle) : handle{handle}
-    {}
-    Handle DatabaseEntry::get_handle() const
-    {
-        return handle;
-    }
-    std::filesystem::path DatabaseEntry::get_filename() const
-    {
-        return filename;
-    }
-    bool DatabaseEntry::operator<(const DatabaseEntry &rhs) const
-    {
-        return (handle < rhs.handle);
-    }
-    bool DatabaseEntry::operator==(const DatabaseEntry &rhs) const
-    {
-        return (handle == rhs.handle);
+        filenameToHandle.erase(handle_to_filename::getIter(handleToFilenameIter));
+        auto entry = filenameToHandle.emplace(filename, handle);
+        if (!entry.second) {
+            filename_to_handle::getHandle(entry.first) = handle_to_filename::getHandle(handleToFilenameIter);
+        }
+        handle_to_filename::getIter(handleToFilenameIter) = entry.first;
+        return true;
     }
 } // namespace mtp
