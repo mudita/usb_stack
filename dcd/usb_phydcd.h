@@ -116,12 +116,13 @@ usb_phydcd_status_t USB_PHYDCD_Control(usb_phydcd_handle handle, usb_phydcd_cont
  * This function is used to update dcd detction on time tick.
  *
  * @param handle                 The dcd handle. It equals the value returned from USB_DCD_Init.
+ * @param tick                   Timer tick value
  *
  * @retval kStatus_phydcd_Success              control the status successfully.
  * @retval kStatus_phydcd_Error                control the status failed .
  *
  */
-usb_phydcd_status_t USB_PHYDCD_TimerIsrFunction(usb_phydcd_handle handle);
+usb_phydcd_status_t USB_PHYDCD_TimerIsrFunction(usb_phydcd_handle handle, uint64_t tick);
 /*! @} */
 
 #if defined(__cplusplus)

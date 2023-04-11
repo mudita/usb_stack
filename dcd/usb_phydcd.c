@@ -131,7 +131,7 @@ usb_phydcd_status_t USB_PHYDCD_Control(usb_phydcd_handle handle, usb_phydcd_cont
     return dcdError;
 }
 
-usb_phydcd_status_t USB_PHYDCD_TimerIsrFunction(usb_phydcd_handle handle)
+usb_phydcd_status_t USB_PHYDCD_TimerIsrFunction(usb_phydcd_handle handle,const uint64_t tick)
 {
     usb_phydcd_status_t dcdError = kStatus_phydcd_Success;
     usb_phydcd_state_struct_t *dcdState;
@@ -142,7 +142,7 @@ usb_phydcd_status_t USB_PHYDCD_TimerIsrFunction(usb_phydcd_handle handle)
     {
         return kStatus_phydcd_Error;
     }
-    dcdState->hwTick++;
+    dcdState->hwTick = tick;
 
     dcdStatus = (usb_phydcd_dev_status_t)dcdState->dcdDetectState;
     switch (dcdStatus)
@@ -162,7 +162,7 @@ usb_phydcd_status_t USB_PHYDCD_TimerIsrFunction(usb_phydcd_handle handle)
             dcdState->startTime = dcdState->hwTick;
             break;
         case kUSB_DCDDataContactDetection:
-            if (0U == ((dcdState->hwTick - dcdState->startTime) % USB_DCD_DATA_PIN_DETECTION_TIME))
+            if ((dcdState->hwTick - dcdState->startTime) / USB_DCD_DATA_PIN_DETECTION_TIME)
             {
                 if (0U != (dcdState->usbAnalogBase->INSTANCE[dcdState->index].CHRG_DETECT_STAT &
                            USB_ANALOG_CHRG_DETECT_STAT_PLUG_CONTACT_MASK))
