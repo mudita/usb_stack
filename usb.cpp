@@ -1,8 +1,6 @@
-/*
- * Copyright  Onplick <info@onplick.com> - All Rights Reserved
- * Unauthorized copying of this file, via any medium is strictly prohibited
- * Proprietary and confidential
- */
+// Copyright (c) 2017-2023, Mudita Sp. z.o.o. All rights reserved.
+// For licensing, see https://github.com/mudita/MuditaOS/LICENSE.md
+
 #include "usb.hpp"
 #include "log.hpp"
 
@@ -10,12 +8,6 @@ extern "C"
 {
 #include "board.h"
 #include "usb_device_config.h"
-#include "usb.h"
-#include "usb_device.h"
-#include "usb_device_class.h"
-#include "usb_device_cdc_acm.h"
-#include "usb_device_ch9.h"
-#include "usb_device_descriptor.h"
 #include "composite.h"
 #include "usb_phy.h"
 }
@@ -40,20 +32,23 @@ namespace bsp
         constexpr inline auto usbCDCEchoOffCmdLength = usbCDCEchoOffCmd.length();
 #endif
 
-        void clearUSBSerialBuffer(){
-            memset(usbSerialBuffer,0,sizeof(usbSerialBuffer));
+        void clearUSBSerialBuffer()
+        {
+            memset(usbSerialBuffer, 0, sizeof(usbSerialBuffer));
         }
 
         TimerHandle_t usbTick;
         void usbUpdateTick(TimerHandle_t)
         {
-            #if (defined(USB_DEVICE_CONFIG_CHARGER_DETECT) && (USB_DEVICE_CONFIG_CHARGER_DETECT > 0U)) && \
-                (defined(FSL_FEATURE_SOC_USB_ANALOG_COUNT) && (FSL_FEATURE_SOC_USB_ANALOG_COUNT > 0U))
-            // This is an ugly stub for a timer.
+#if (defined(USB_DEVICE_CONFIG_CHARGER_DETECT) && (USB_DEVICE_CONFIG_CHARGER_DETECT > 0U)) &&                          \
+    (defined(FSL_FEATURE_SOC_USB_ANALOG_COUNT) && (FSL_FEATURE_SOC_USB_ANALOG_COUNT > 0U))
+            /// NXP low-level code calls for the 1ms tick rate, preferably provided by hardware timer. In this case we
+            /// are using FreeRTOS software timer configured to 10ms instead. It is still not the best solution, but at
+            /// least we won't choke the OS by spamming OS with 1ms timer events.
             USB_UpdateHwTick();
-            #endif
+#endif
         }
-    }
+    } // namespace
 
     int usbInit(const bsp::usbInitParams &initParams)
     {
@@ -63,53 +58,37 @@ namespace bsp
         }
 
         clearUSBSerialBuffer();
-        usbTick = xTimerCreate(
-            "usbHWTick", pdMS_TO_TICKS(1), true, nullptr, usbUpdateTick);
+        usbTick = xTimerCreate("usbHWTick", pdMS_TO_TICKS(10), pdTRUE, nullptr, usbUpdateTick);
 
-        USBReceiveQueue                = initParams.queueHandle;
-        USBIrqQueue                    = initParams.irqQueueHandle;
+        USBReceiveQueue = initParams.queueHandle;
+        USBIrqQueue     = initParams.irqQueueHandle;
 
-        usbDeviceComposite = composite_init(usbDeviceStateCB, initParams.serialNumber.c_str(), initParams.deviceVersion, initParams.rootPath.c_str());
-
+        usbDeviceComposite = composite_init(
+            usbDeviceStateCB, initParams.serialNumber.c_str(), initParams.deviceVersion, initParams.rootPath.c_str());
+        xTimerStart(usbTick, 500);
         return (usbDeviceComposite == NULL) ? -1 : 0;
     }
 
     void usbDeinit()
     {
-    	log_debug("usbDeinit");
-        // Restart HW tick for resume operation
-        if (xTimerStart(usbTick, 0) == pdPASS ) {
-			// Resume if suspended
-			composite_resume(usbDeviceComposite);
-
-			if (xTimerStop(usbTick, 0) != pdPASS){
-				log_error("The usbTick timer could not be stopped");
-			}
-        }
-        else {
-        	log_error("The usbTick timer could not be started");
-        }
+        log_debug("usbDeinit");
+        xTimerStop(usbTick, 500);
+        xTimerDelete(usbTick, 500);
 
         composite_deinit(usbDeviceComposite);
     }
 
-    void usbReinit(const std::string& rootPath)
-    {
-        log_debug("usbReinit");
-        clearUSBSerialBuffer();
-        composite_reinit(usbDeviceComposite, rootPath.c_str());
-    }
-
     void usbSuspend()
     {
-    	log_debug("usbSuspend");
-    	composite_suspend(usbDeviceComposite);
+        log_debug("usbSuspend");
+        composite_suspend(usbDeviceComposite);
     }
 
     int usbCDCReceive(void *buffer)
     {
-        if (usbDeviceComposite->cdcVcom.inputStream == nullptr)
+        if (usbDeviceComposite->cdcVcom.inputStream == nullptr) {
             return 0;
+        }
 
         memset(buffer, 0, SERIAL_BUFFER_LEN);
 
@@ -118,7 +97,7 @@ namespace bsp
 
     void usbHandleDataReceived()
     {
-        uint32_t dataReceivedLength = usbCDCReceive(&usbSerialBuffer);
+        const std::uint32_t dataReceivedLength = usbCDCReceive(&usbSerialBuffer);
         if (dataReceivedLength > 0) {
             log_debug("usbDeviceTask Received: %d signs", static_cast<int>(dataReceivedLength));
 
@@ -136,7 +115,8 @@ namespace bsp
 
             if (usbCdcEchoEnabled || usbCdcEchoEnabledPrev) {
                 usbCDCSendRaw(usbSerialBuffer, dataReceivedLength);
-                log_debug("usbDeviceTask echoed: %d signs: [%s]", static_cast<int>(dataReceivedLength), usbSerialBuffer);
+                log_debug(
+                    "usbDeviceTask echoed: %d signs: [%s]", static_cast<int>(dataReceivedLength), usbSerialBuffer);
                 continue;
             }
 #endif
@@ -157,16 +137,16 @@ namespace bsp
 
     int usbCDCSendRaw(const char *dataPtr, size_t dataLen)
     {
-        uint32_t dataSent = 0;
+        std::uint32_t dataSent = 0;
 
         do {
-            uint32_t len =  VirtualComSend(&usbDeviceComposite->cdcVcom, dataPtr + dataSent, dataLen - dataSent);
-            if (!len) {
+            const auto len = VirtualComSend(&usbDeviceComposite->cdcVcom, dataPtr + dataSent, dataLen - dataSent);
+            if (len == 0) {
                 vTaskDelay(1 / portTICK_PERIOD_MS);
                 continue;
             }
             dataSent += len;
-        } while(dataSent < dataLen);
+        } while (dataSent < dataLen);
 
         return dataSent;
     }
@@ -177,27 +157,30 @@ namespace bsp
         switch (event) {
         case VCOM_CONFIGURED:
             notification = USBDeviceStatus::Configured;
-            xQueueSend(USBIrqQueue, &notification, 0);
             break;
         case VCOM_ATTACHED:
-            xTimerStart(usbTick, 1000);
             notification = USBDeviceStatus::Connected;
-            xQueueSend(USBIrqQueue, &notification, 0);
             break;
         case VCOM_DETACHED:
-            xTimerStop(usbTick, 1000);
             notification = USBDeviceStatus::Disconnected;
-            xQueueSend(USBIrqQueue, &notification, 0);
-            break;
-        case VCOM_DATA_RECEIVED:
-            notification = USBDeviceStatus::DataReceived;
-            xQueueSend(USBIrqQueue, &notification, 0);
             break;
         case VCOM_RESET:
             notification = USBDeviceStatus::Reset;
-            xQueueSend(USBIrqQueue, &notification, 0);
+            break;
+        case VCOM_DATA_RECEIVED:
+            notification = USBDeviceStatus::DataReceived;
+            break;
         default:
             break;
+        }
+
+        if (0U != __get_IPSR()) {
+            BaseType_t shouldYield = 0;
+            xQueueSendFromISR(USBIrqQueue, &notification, &shouldYield);
+            portYIELD_FROM_ISR(shouldYield);
+        }
+        else {
+            xQueueSend(USBIrqQueue, &notification, 500);
         }
     }
 } // namespace bsp

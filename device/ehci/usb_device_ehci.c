@@ -1742,7 +1742,7 @@ usb_status_t USB_DeviceEhciControl(usb_device_controller_handle ehciHandle, usb_
         case kUSB_DeviceControlUpdateHwTick:
             /*udpate 1ms time tick*/
 #if (defined(FSL_FEATURE_SOC_USB_ANALOG_COUNT) && (FSL_FEATURE_SOC_USB_ANALOG_COUNT > 0U))
-            USB_PHYDCD_TimerIsrFunction(ehciState->dcdHandle);
+            USB_PHYDCD_TimerIsrFunction(ehciState->dcdHandle,ehciState->deviceHandle->hwTick);
 #endif
             error = kStatus_USB_Success;
             break;
