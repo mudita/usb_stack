@@ -49,15 +49,27 @@ namespace mtp
         handleToFilename.erase(handleToFilenameIter);
         return true;
     }
-    Handle FileDatabase::insert(const char *filename)
+    Handle FileDatabase::insert_or_get(const char *filename)
     {
-        static Handle handle_idx = 1;
-
         const auto entry = filenameToHandle.emplace(filename, handle_idx);
         if (entry.second) {
             handleToFilename.emplace(handle_idx, entry.first);
             ++handle_idx;
         }
+        return filename_to_handle::getHandle(entry.first);
+    }
+    Handle FileDatabase::insert(const char *filename)
+    {
+        const auto filenameToHandleToIter = filenameToHandle.find(filename);
+        if (filenameToHandleToIter != filenameToHandle.end()) {
+            remove(filenameToHandleToIter->second);
+        }
+        const auto entry = filenameToHandle.emplace(filename, handle_idx);
+        if (!entry.second) {
+            return 0;
+        }
+        handleToFilename.emplace(handle_idx, entry.first);
+        ++handle_idx;
         return filename_to_handle::getHandle(entry.first);
     }
     bool FileDatabase::update(const Handle handle, const char *filename)

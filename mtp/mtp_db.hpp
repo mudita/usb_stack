@@ -23,6 +23,10 @@ namespace mtp
         /// Try to remove entry by handle. Returns false in case of failure.
         bool remove(Handle handle);
 
+        /// Try to insert entry with the specific filename. Returns existing handle if file exist and unique if it
+        /// didn't exist.
+        Handle insert_or_get(const char *filename);
+
         /// Try to insert entry with the specific filename. Returns assigned unique index in case of success.
         Handle insert(const char *filename);
 
@@ -30,6 +34,7 @@ namespace mtp
         bool update(Handle handle, const char *filename);
 
       private:
+        Handle handle_idx = 1;
         PathToHandleMap filenameToHandle;
         HandleToInteratorMap handleToFilename;
     };

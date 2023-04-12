@@ -137,7 +137,7 @@ namespace
             return 0;
         }
 
-        const auto new_handle = from_raw(fs->db).insert(de->d_name);
+        const auto new_handle = from_raw(fs->db).insert_or_get(de->d_name);
         return new_handle;
     }
 
@@ -149,7 +149,7 @@ namespace
             if (is_dot(de->d_name)) {
                 continue;
             }
-            const auto new_handle = from_raw(fs->db).insert(de->d_name);
+            const auto new_handle = from_raw(fs->db).insert_or_get(de->d_name);
             return new_handle;
         }
         log_debug("Done, no more files");
