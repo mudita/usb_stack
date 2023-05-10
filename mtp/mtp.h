@@ -30,7 +30,6 @@ usb_status_t MtpUSBCallback(uint32_t event, void *param, void *userArg);
 usb_status_t MtpInit(usb_mtp_struct_t *mtpApp, class_handle_t classHandle, const char *mtpRoot);
 void MtpReset(usb_mtp_struct_t *mtpApp, uint8_t speed);
 void MtpDeinit(usb_mtp_struct_t *mtpApp);
-usb_status_t MtpReinit(usb_mtp_struct_t *mtpApp, class_handle_t classHandle, const char *mtpRoot);
 void MtpDetached(usb_mtp_struct_t *mtpApp);
 
 #endif /* _MTP_H_ */

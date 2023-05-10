@@ -1,8 +1,9 @@
 // Copyright (c) 2017-2023, Mudita Sp. z.o.o. All rights reserved.
 // For licensing, see https://github.com/mudita/MuditaOS/LICENSE.md
 
-#include "usb.hpp"
 #include "log.hpp"
+
+#include <module-bsp/bsp/usb/usb.hpp>
 
 extern "C"
 {
@@ -11,6 +12,8 @@ extern "C"
 #include "composite.h"
 #include "usb_phy.h"
 }
+
+#include <string>
 
 namespace bsp
 {
@@ -48,6 +51,39 @@ namespace bsp
             USB_UpdateHwTick();
 #endif
         }
+
+        void usbDeviceStateCB(void *const /*unused*/, const usb_events_t event)
+        {
+            USBDeviceStatus notification;
+            switch (event) {
+            case USB_EVENT_CONFIGURED:
+                notification = USBDeviceStatus::Configured;
+                break;
+            case USB_EVENT_ATTACHED:
+                notification = USBDeviceStatus::Connected;
+                break;
+            case USB_EVENT_DETACHED:
+                notification = USBDeviceStatus::Disconnected;
+                break;
+            case USB_EVENT_RESET:
+                notification = USBDeviceStatus::Reset;
+                break;
+            case USB_EVENT_DATA_RECEIVED:
+                notification = USBDeviceStatus::DataReceived;
+                break;
+            default:
+                break;
+            }
+
+            if (0U != __get_IPSR()) {
+                BaseType_t shouldYield = 0;
+                xQueueSendFromISR(USBIrqQueue, &notification, &shouldYield);
+                portYIELD_FROM_ISR(shouldYield);
+            }
+            else {
+                xQueueSend(USBIrqQueue, &notification, 500);
+            }
+        }
     } // namespace
 
     int usbInit(const bsp::usbInitParams &initParams)
@@ -76,12 +112,6 @@ namespace bsp
         xTimerDelete(usbTick, 500);
 
         composite_deinit(usbDeviceComposite);
-    }
-
-    void usbSuspend()
-    {
-        log_debug("usbSuspend");
-        composite_suspend(usbDeviceComposite);
     }
 
     int usbCDCReceive(void *buffer)
@@ -130,11 +160,6 @@ namespace bsp
         }
     }
 
-    int usbCDCSend(std::string *message)
-    {
-        return usbCDCSendRaw(message->c_str(), message->length());
-    }
-
     int usbCDCSendRaw(const char *dataPtr, size_t dataLen)
     {
         std::uint32_t dataSent = 0;
@@ -151,36 +176,8 @@ namespace bsp
         return dataSent;
     }
 
-    void usbDeviceStateCB(void *, vcomEvent event)
+    int usbCDCSend(std::string *message)
     {
-        USBDeviceStatus notification;
-        switch (event) {
-        case VCOM_CONFIGURED:
-            notification = USBDeviceStatus::Configured;
-            break;
-        case VCOM_ATTACHED:
-            notification = USBDeviceStatus::Connected;
-            break;
-        case VCOM_DETACHED:
-            notification = USBDeviceStatus::Disconnected;
-            break;
-        case VCOM_RESET:
-            notification = USBDeviceStatus::Reset;
-            break;
-        case VCOM_DATA_RECEIVED:
-            notification = USBDeviceStatus::DataReceived;
-            break;
-        default:
-            break;
-        }
-
-        if (0U != __get_IPSR()) {
-            BaseType_t shouldYield = 0;
-            xQueueSendFromISR(USBIrqQueue, &notification, &shouldYield);
-            portYIELD_FROM_ISR(shouldYield);
-        }
-        else {
-            xQueueSend(USBIrqQueue, &notification, 500);
-        }
+        return usbCDCSendRaw(message->c_str(), message->length());
     }
 } // namespace bsp

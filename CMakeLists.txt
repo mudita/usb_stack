@@ -78,7 +78,6 @@ target_sources(usb_stack
         usb_device_descriptor.h
         pure/usb_strings.h
         bell/usb_strings.h
-        usb.hpp
 )
 
 if (ENABLE_USB_MTP)
