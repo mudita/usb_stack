@@ -8,8 +8,6 @@
 #include "usb.h"
 #include "usb_device.h"
 #include "usb_device_class.h"
-#include "usb_device_cdc_acm.h"
-#include "usb_device_ch9.h"
 #include "usb_device_descriptor.h"
 #include "composite.h"
 #include "usb_phy.h"
@@ -223,6 +221,7 @@ static usb_status_t USB_DeviceCallback(usb_device_handle handle, uint32_t event,
 #if defined(USB_DEVICE_CONFIG_MTP) && (USB_DEVICE_CONFIG_MTP > 0U)
         MtpReset(&composite.mtpApp, composite.speed);
 #endif
+        composite.userDefinedEventCallback(composite.userDefinedEventCallbackArg, USB_EVENT_RESET);
     } break;
     case kUSB_DeviceEventSetConfiguration:
         if (0U == (*temp8)) {
@@ -294,6 +293,7 @@ static usb_status_t USB_DeviceCallback(usb_device_handle handle, uint32_t event,
 
     case kUSB_DeviceEventAttach:
         VirtualComAttached(&composite.cdcVcom);
+        composite.userDefinedEventCallback(composite.userDefinedEventCallbackArg, USB_EVENT_ATTACHED);
         break;
 
     case kUSB_DeviceEventDetach:
@@ -301,11 +301,13 @@ static usb_status_t USB_DeviceCallback(usb_device_handle handle, uint32_t event,
 #if defined(USB_DEVICE_CONFIG_MTP) && (USB_DEVICE_CONFIG_MTP > 0U)
         MtpDetached(&composite.mtpApp);
 #endif
+        composite.userDefinedEventCallback(composite.userDefinedEventCallbackArg, USB_EVENT_DETACHED);
         break;
 #if (defined(USB_DEVICE_CONFIG_CHARGER_DETECT) && (USB_DEVICE_CONFIG_CHARGER_DETECT > 0U)) &&                          \
     (defined(FSL_FEATURE_SOC_USB_ANALOG_COUNT) && (FSL_FEATURE_SOC_USB_ANALOG_COUNT > 0U))
     case kUSB_DeviceEventDcdDetectionfinished:
         charger_detected_callback(*(const usb_device_charger_detect_type_t *)param);
+        composite.userDefinedEventCallback(composite.userDefinedEventCallbackArg, USB_EVENT_DCD_FINISHED);
         break;
 #endif
 
@@ -316,7 +318,7 @@ static usb_status_t USB_DeviceCallback(usb_device_handle handle, uint32_t event,
     return error;
 }
 
-usb_device_composite_struct_t *composite_init(userCbFunc callback,
+usb_device_composite_struct_t *composite_init(usb_event_callback_t userEventCallback,
                                               const char *serialNumber,
                                               const uint16_t bcdDeviceVersion,
                                               const char *mtpRoot)
@@ -325,10 +327,12 @@ usb_device_composite_struct_t *composite_init(userCbFunc callback,
         log_error("[Composite] USB Device Clock init failed");
     }
 
-    composite.speed                = USB_SPEED_FULL;
-    composite.attach               = 0;
-    composite.cdcVcom.cdcAcmHandle = (class_handle_t)NULL;
-    composite.deviceHandle         = NULL;
+    composite.speed                       = USB_SPEED_FULL;
+    composite.attach                      = 0;
+    composite.cdcVcom.cdcAcmHandle        = (class_handle_t)NULL;
+    composite.deviceHandle                = NULL;
+    composite.userDefinedEventCallback    = userEventCallback;
+    composite.userDefinedEventCallbackArg = NULL; // not used
 
     if (serialNumber && serialNumber[0]) {
         USB_DeviceSetSerialNumberString(serialNumber);
@@ -338,32 +342,32 @@ usb_device_composite_struct_t *composite_init(userCbFunc callback,
 
     USB_DevicePllInit();
 
-    PMU->REG_3P0 |= PMU_REG_3P0_ENABLE_ILIMIT(1);
-    PMU->REG_3P0 |= PMU_REG_3P0_ENABLE_LINREG(1);
-
     log_debug("VBUS_DETECT: 0x%08x\r\n", (unsigned int)USB_ANALOG->INSTANCE[0].VBUS_DETECT);
     log_debug("VBUS_DETECT_STAT: 0x%08x\r\n", (unsigned int)USB_ANALOG->INSTANCE[0].VBUS_DETECT_STAT);
 
     if (kStatus_USB_Success !=
         USB_DeviceClassInit(CONTROLLER_ID, &g_UsbDeviceCompositeConfigList, &composite.deviceHandle)) {
         log_error("[Composite] USB Device init failed");
-        return NULL;
+        goto error;
     }
     else {
-        /* TODO: pass event handling function here */
 #if defined(USB_DEVICE_CONFIG_MTP) && (USB_DEVICE_CONFIG_MTP > 0U)
         g_MtpClassHandle  = g_CompositeClassConfig[0].classHandle;
         g_VComClassHandle = g_CompositeClassConfig[1].classHandle;
 
         if (MtpInit(&composite.mtpApp, g_MtpClassHandle, mtpRoot) != kStatus_USB_Success) {
             log_error("[Composite] MTP initialization failed");
+            goto error;
         }
 #else
         g_VComClassHandle = g_CompositeClassConfig[0].classHandle;
 #endif
-        if (VirtualComInit(&composite.cdcVcom, g_VComClassHandle, callback, (void *)serialNumber) !=
+        if (VirtualComInit(
+                &composite.cdcVcom, g_VComClassHandle, composite.userDefinedEventCallback, (void *)serialNumber) !=
             kStatus_USB_Success) {
             log_error("[Composite] VirtualCom initialization failed");
+            MtpDeinit(&composite.mtpApp);
+            goto error;
         }
     }
 
@@ -385,11 +389,15 @@ usb_device_composite_struct_t *composite_init(userCbFunc callback,
     log_debug("[Composite] USB initialized");
     composite.initialized = true;
     return &composite;
+
+error:
+    USB_DevicePllDeinit();
+    return NULL;
 }
 
-void composite_deinit(usb_device_composite_struct_t *composite)
+void composite_deinit(usb_device_composite_struct_t *instance)
 {
-    if (!composite || !composite->initialized) {
+    if (!instance || !instance->initialized) {
         log_debug("[Composite] USB already deinitialized");
         return;
     }
@@ -399,16 +407,16 @@ void composite_deinit(usb_device_composite_struct_t *composite)
 #endif
 
     usb_status_t err;
-    if ((err = USB_DeviceStop(composite->deviceHandle)) != kStatus_USB_Success) {
+    if ((err = USB_DeviceStop(instance->deviceHandle)) != kStatus_USB_Success) {
         log_error("[Composite] Device stop failed: 0x%x", err);
     }
     USB_DeviceSetIsr(false);
 
 #if defined(USB_DEVICE_CONFIG_MTP) && (USB_DEVICE_CONFIG_MTP > 0U)
-    MtpDeinit(&composite->mtpApp);
+    MtpDeinit(&instance->mtpApp);
 #endif
 
-    VirtualComDeinit(&composite->cdcVcom);
+    VirtualComDeinit(&instance->cdcVcom);
 
     if ((err = USB_DeviceClassDeinit(CONTROLLER_ID)) != kStatus_USB_Success) {
         log_error("[Composite] Device class deinit failed: 0x%x", err);
@@ -418,23 +426,6 @@ void composite_deinit(usb_device_composite_struct_t *composite)
     USB_DeviceClockDeinit();
     USB_DevicePllDeinit();
 
-    composite->initialized = false;
+    instance->initialized = false;
     log_debug("[Composite] USB deinitialized");
-}
-
-void composite_suspend(usb_device_composite_struct_t *composite)
-{
-    usb_status_t err;
-    if ((err = USB_DeviceSetStatus(composite->deviceHandle, kUSB_DeviceStatusBusSuspend, NULL)) !=
-        kStatus_USB_Success) {
-        log_error("[Composite] Device suspend failed: 0x%x", err);
-    }
-}
-
-void composite_resume(usb_device_composite_struct_t *composite)
-{
-    usb_status_t err;
-    if ((err = USB_DeviceSetStatus(composite->deviceHandle, kUSB_DeviceStatusBusResume, NULL)) != kStatus_USB_Success) {
-        log_error("[Composite] Device resume failed: 0x%x", err);
-    }
 }

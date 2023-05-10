@@ -11,6 +11,7 @@
 #include "stream_buffer.h"
 #include "message_buffer.h"
 #include "event_groups.h"
+#include "events.h"
 #include "usb_device_config.h"
 #include "MIMXRT1051_features.h"
 #include "virtual_com.h"
@@ -37,16 +38,15 @@ typedef struct _usb_device_composite_struct
     uint8_t currentConfiguration;                              /* Current configuration value. */
     uint8_t
         currentInterfaceAlternateSetting[USB_INTERFACE_COUNT]; /* Current alternate setting value for each interface. */
+    usb_event_callback_t userDefinedEventCallback;
+    void *userDefinedEventCallbackArg;
 } usb_device_composite_struct_t;
 
-usb_device_composite_struct_t *composite_init(userCbFunc callback,
+usb_device_composite_struct_t *composite_init(usb_event_callback_t userEventCallback,
                                               const char *serialNumber,
                                               const uint16_t bcdDeviceVersion,
                                               const char *mtpRoot);
 void composite_deinit(usb_device_composite_struct_t *composite);
-void composite_reinit(usb_device_composite_struct_t *composite, const char *mtpRoot);
-void composite_suspend(usb_device_composite_struct_t *composite);
-void composite_resume(usb_device_composite_struct_t *composite);
 
 #if (defined(USB_DEVICE_CONFIG_CHARGER_DETECT) && (USB_DEVICE_CONFIG_CHARGER_DETECT > 0U)) &&                          \
     (defined(FSL_FEATURE_SOC_USB_ANALOG_COUNT) && (FSL_FEATURE_SOC_USB_ANALOG_COUNT > 0U))
