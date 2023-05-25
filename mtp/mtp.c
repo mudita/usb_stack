@@ -294,6 +294,12 @@ static void MtpTask(void *handle)
             continue;
         }
 
+        if (mtpApp->is_locked) {
+            log_debug("[MTP] Wait for unlock security");
+            send_response(mtpApp, MTP_RESPONSE_ACCESS_DENIED);
+            continue;
+        }
+
         xMessageBufferReset(mtpApp->inputBox);
         xMessageBufferReset(mtpApp->outputBox);
         mtp_responder_transaction_reset(mtpApp->responder);
@@ -312,12 +318,6 @@ static void MtpTask(void *handle)
 
             if (request_len == 0) {
                 log_debug("[MTP] Expected MTP message. Reset: %s", mtpApp->in_reset ? "true" : "false");
-                continue;
-            }
-
-            if (mtpApp->is_locked) {
-                log_debug("[MTP] Wait for unlock security");
-                send_response(mtpApp, MTP_RESPONSE_ACCESS_DENIED);
                 continue;
             }
 
