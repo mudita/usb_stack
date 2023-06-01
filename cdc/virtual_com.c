@@ -433,7 +433,6 @@ int VirtualComSend(usb_cdc_vcom_struct_t *cdcVcom, const void *data, size_t leng
 
     taskENTER_CRITICAL();
     const bool isBusy = USB_DeviceClassCdcAcmIsBusy(cdcVcom->cdcAcmHandle, USB_CDC_VCOM_DIC_BULK_IN_ENDPOINT);
-    taskEXIT_CRITICAL();
 
     if (isBusy) {
         result = xStreamBufferSend(cdcVcom->outputStream, data, length, 0);
@@ -451,6 +450,7 @@ int VirtualComSend(usb_cdc_vcom_struct_t *cdcVcom, const void *data, size_t leng
             result = 0;
         }
     }
+    taskEXIT_CRITICAL();
 
     return result;
 }
@@ -468,10 +468,10 @@ int VirtualComRecv(usb_cdc_vcom_struct_t *cdcVcom, void *data, size_t length)
     // don't care about error code. If pipe is busy, then it will rescheduled in ISR
     taskENTER_CRITICAL();
     const bool isBusy = USB_DeviceClassCdcAcmIsBusy(cdcVcom->cdcAcmHandle, USB_CDC_VCOM_DIC_BULK_OUT_ENDPOINT);
-    taskEXIT_CRITICAL();
     if (cdcVcom->configured && !isBusy) {
         RescheduleRecv(cdcVcom);
     }
+    taskEXIT_CRITICAL();
 
     return received;
 }
