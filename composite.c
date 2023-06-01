@@ -321,7 +321,8 @@ static usb_status_t USB_DeviceCallback(usb_device_handle handle, uint32_t event,
 usb_device_composite_struct_t *composite_init(usb_event_callback_t userEventCallback,
                                               const char *serialNumber,
                                               const uint16_t bcdDeviceVersion,
-                                              const char *mtpRoot)
+                                              const char *mtpRoot,
+                                              bool mtpLockedAtInit)
 {
     if (USB_DeviceClockInit() != kStatus_USB_Success) {
         log_error("[Composite] USB Device Clock init failed");
@@ -355,7 +356,7 @@ usb_device_composite_struct_t *composite_init(usb_event_callback_t userEventCall
         g_MtpClassHandle  = g_CompositeClassConfig[0].classHandle;
         g_VComClassHandle = g_CompositeClassConfig[1].classHandle;
 
-        if (MtpInit(&composite.mtpApp, g_MtpClassHandle, mtpRoot) != kStatus_USB_Success) {
+        if (MtpInit(&composite.mtpApp, g_MtpClassHandle, mtpRoot, mtpLockedAtInit) != kStatus_USB_Success) {
             log_error("[Composite] MTP initialization failed");
             goto error;
         }

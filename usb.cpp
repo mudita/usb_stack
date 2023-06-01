@@ -100,7 +100,13 @@ namespace bsp
         USBIrqQueue     = initParams.irqQueueHandle;
 
         usbDeviceComposite = composite_init(
-            usbDeviceStateCB, initParams.serialNumber.c_str(), initParams.deviceVersion, initParams.rootPath.c_str());
+                usbDeviceStateCB,
+                initParams.serialNumber.c_str(),
+                initParams.deviceVersion,
+                initParams.rootPath.c_str(),
+                initParams.mtpLockedAtInit
+        );
+
         xTimerStart(usbTick, 500);
         return (usbDeviceComposite == NULL) ? -1 : 0;
     }

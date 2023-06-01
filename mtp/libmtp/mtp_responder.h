@@ -67,6 +67,12 @@ int mtp_responder_set_storage(mtp_responder_t *mtp,
         const struct mtp_storage_api *api,
         void *api_arg);
 
+/** @brief Binds external storage lock state variable for internal responder's use
+ *  @param mtp handle to mtp library
+ *  @param lock pointer to storage lock state variable
+ *  */
+void mtp_responder_bind_storage_lock(mtp_responder_t *mtp, bool *lock);
+
 /** @brief Setup space for store data coming from handled request
  *  @param buffer pinter to memory to store data
  *  @param size of buffer
