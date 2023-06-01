@@ -17,6 +17,8 @@
 #include "mtp_fs.h"
 #include "log.hpp"
 
+#define UNUSED(x) do { (void)(x); } while (0)
+
 /* Number of buffers that fit into input and output stream */
 #define CONFIG_RX_STREAM_SIZE (4)
 #define CONFIG_TX_STREAM_SIZE (1)
@@ -34,7 +36,7 @@ USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE) static char mtpRootPat
 
 #define MTP_TASK_STACK_SIZE (3U * 1024U)
 
-const char *DEVICE_STRING_VALUE[] = {USB_STRINGS(VALUE)};
+static const char *DEVICE_STRING_VALUE[] = {USB_STRINGS(VALUE)};
 static mtp_device_info_t getDevice()
 {
     const int indexOffset    = 1;
@@ -138,6 +140,8 @@ static size_t Send(usb_mtp_struct_t *mtpApp, void *buffer, size_t length)
 
 static usb_status_t OnConfigurationComplete(usb_mtp_struct_t *mtpApp, void *param)
 {
+    UNUSED(param);
+
     mtpApp->configured = true;
     xSemaphoreGiveFromISR(mtpApp->configuring, NULL);
     return kStatus_USB_Success;
@@ -172,6 +176,8 @@ static usb_status_t OnIncomingFrame(usb_mtp_struct_t *mtpApp, void *param)
 
 static usb_status_t OnOutgoingFrameSent(usb_mtp_struct_t *mtpApp, void *param)
 {
+    UNUSED(param);
+
     if (mtpApp->configured) {
         log_debug("[MTP] already sent");
         if (mtpApp->outputBox == NULL) {
@@ -194,6 +200,8 @@ static usb_status_t OnOutgoingFrameSent(usb_mtp_struct_t *mtpApp, void *param)
 
 static usb_status_t OnCancelTransaction(usb_mtp_struct_t *mtpApp, void *param)
 {
+    UNUSED(param);
+
     mtpApp->in_reset = true;
     return kStatus_USB_Success;
 }
@@ -273,8 +281,9 @@ static void MtpTask(void *handle)
         return;
     }
 
-    mtp_responder_init(mtpApp->responder);
     const mtp_device_info_t device = getDevice();
+
+    mtp_responder_init(mtpApp->responder);
     if (mtp_responder_set_device_info(mtpApp->responder, &device)) {
         log_debug("[MTP] Invalid device info!");
         mtp_fs_free(mtpApp->mtp_fs);
@@ -282,21 +291,15 @@ static void MtpTask(void *handle)
         return;
     }
     mtp_responder_set_data_buffer(mtpApp->responder, mtp_response, sizeof(mtp_response));
-
     mtp_responder_set_storage(mtpApp->responder, CONFIG_MTP_STORAGE_ID, &simple_fs_api, mtpApp->mtp_fs);
+    mtp_responder_bind_storage_lock(mtpApp->responder, &mtpApp->is_storage_locked);
+
     responder = mtpApp->responder;
 
     while (!mtpApp->is_terminated) {
-
         if (!mtpApp->configured) {
             log_debug("[MTP] Wait for configuration");
             xSemaphoreTake(mtpApp->configuring, portMAX_DELAY);
-            continue;
-        }
-
-        if (mtpApp->is_locked) {
-            log_debug("[MTP] Wait for unlock security");
-            send_response(mtpApp, MTP_RESPONSE_ACCESS_DENIED);
             continue;
         }
 
@@ -305,12 +308,11 @@ static void MtpTask(void *handle)
         mtp_responder_transaction_reset(mtpApp->responder);
 
         log_debug("[MTP] Ready");
-        if (mtpApp->is_locked) { log_debug("[MTP] security locked - MTP access denied"); }
 
         mtpApp->in_reset = false;
 
         while (!mtpApp->in_reset) {
-            uint16_t status = 0;
+            uint16_t status;
             size_t request_len;
             size_t result_len;
 
@@ -378,16 +380,16 @@ static void MtpTask(void *handle)
     mtp_fs_free(mtpApp->mtp_fs);
     mtpApp->mtp_fs = NULL;
     xSemaphoreGive(mtpApp->join);
-    log_debug("[MTP] mtp task end");
+    log_debug("[MTP] MTP task end");
     vTaskDelete(NULL);
 }
 
-usb_status_t MtpInit(usb_mtp_struct_t *mtpApp, class_handle_t classHandle, const char *mtpRoot)
+usb_status_t MtpInit(usb_mtp_struct_t *mtpApp, class_handle_t classHandle, const char *mtpRoot, bool mtpLockedAtInit)
 {
-    mtpApp->configured    = false;
-    mtpApp->is_terminated = false;
-    mtpApp->is_locked     = true;
-    mtpApp->classHandle   = classHandle;
+    mtpApp->configured          = false;
+    mtpApp->is_terminated       = false;
+    mtpApp->is_storage_locked   = mtpLockedAtInit;
+    mtpApp->classHandle         = classHandle;
 
     if ((mtpApp->join = xSemaphoreCreateBinary()) == NULL) {
         return kStatus_USB_AllocFail;
@@ -414,7 +416,7 @@ usb_status_t MtpInit(usb_mtp_struct_t *mtpApp, class_handle_t classHandle, const
     strncpy(mtpRootPath, mtpRoot, sizeof(mtpRootPath));
 
     if (xTaskCreate(MtpTask,                                      /* pointer to the task */
-                    "mtp task",                                   /* task name for kernel awareness debugging */
+                    "MTP task",                                   /* task name for kernel awareness debugging */
                     MTP_TASK_STACK_SIZE / sizeof(portSTACK_TYPE), /* task stack size */
                     mtpApp,                                       /* optional task startup argument */
                     tskIDLE_PRIORITY,                             /* initial priority */
@@ -474,13 +476,13 @@ void MtpReset(usb_mtp_struct_t *mtpApp, uint8_t speed)
 
 void MtpDetached(usb_mtp_struct_t *mtpApp)
 {
-    log_debug("[MTP] MTP detached");
+    log_debug("[MTP] Detached");
     mtpApp->configured = false;
     mtpApp->in_reset   = true;
 }
 
 void MtpUnlock(usb_mtp_struct_t *mtpApp)
 {
-    log_debug("[MTP] security unlocked - MTP access granted");
-    mtpApp->is_locked = false;
+    log_debug("[MTP] Security unlocked - MTP access granted");
+    mtpApp->is_storage_locked = false;
 }

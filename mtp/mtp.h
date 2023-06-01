@@ -18,7 +18,7 @@ typedef struct {
     uint8_t configured;
     uint8_t in_reset;
     uint8_t is_terminated;
-    bool is_locked;
+    bool is_storage_locked;
     size_t usb_buffer_size;
     MessageBufferHandle_t inputBox;
     MessageBufferHandle_t outputBox;
@@ -28,7 +28,7 @@ typedef struct {
 } usb_mtp_struct_t;
 
 usb_status_t MtpUSBCallback(uint32_t event, void *param, void *userArg);
-usb_status_t MtpInit(usb_mtp_struct_t *mtpApp, class_handle_t classHandle, const char *mtpRoot);
+usb_status_t MtpInit(usb_mtp_struct_t *mtpApp, class_handle_t classHandle, const char *mtpRoot, bool mtpLockedAtInit);
 void MtpReset(usb_mtp_struct_t *mtpApp, uint8_t speed);
 void MtpDeinit(usb_mtp_struct_t *mtpApp);
 void MtpDetached(usb_mtp_struct_t *mtpApp);

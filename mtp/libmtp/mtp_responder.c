@@ -20,6 +20,7 @@
 struct mtp_responder
 {
     bool session_open;
+    bool *storage_lock;
     uint32_t session_id;            /* not really used in USB implementation */
 
     mtp_storage_t storage;
@@ -257,6 +258,11 @@ int mtp_responder_set_storage(mtp_responder_t *mtp,
     return 0;
 }
 
+void mtp_responder_bind_storage_lock(mtp_responder_t *mtp, bool *lock)
+{
+    mtp->storage_lock = lock;
+}
+
 static void set_data_header(mtp_responder_t *mtp)
 {
     mtp->cntr->header.type = MTP_CONTAINER_TYPE_DATA;
@@ -319,20 +325,26 @@ static uint16_t operation_get_storage_ids(mtp_responder_t *mtp, const mtp_op_cnt
 static uint16_t operation_get_storage_info(mtp_responder_t *mtp, const mtp_op_cntr_t *request)
 {
     uint16_t error;
-    uint32_t storageID = request->parameter[0];
+    const uint32_t storageID = request->parameter[0];
+    const bool storage_locked = (mtp->storage_lock != NULL) ? *mtp->storage_lock : false;
 
-    if (storageID == mtp->storage.id)
-    {
+    do {
+        if (storage_locked) {
+            error = MTP_RESPONSE_ACCESS_DENIED;
+            break;
+        }
+
+        if (storageID != mtp->storage.id) {
+            error = MTP_RESPONSE_INVALID_STORAGE_ID;
+            break;
+        }
+
         uint8_t *payload = (uint8_t *)mtp->cntr->payload;
         uint32_t total = serialize_storage_info(&mtp->storage, payload);
         mtp->transaction.total = total;
         mtp->transaction.in_buffer = total;
         error = MTP_RESPONSE_OK;
-    }
-    else
-    {
-        error = MTP_RESPONSE_INVALID_STORAGE_ID;
-    }
+    } while (0);
 
     return error;
 }

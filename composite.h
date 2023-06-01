@@ -45,7 +45,8 @@ typedef struct _usb_device_composite_struct
 usb_device_composite_struct_t *composite_init(usb_event_callback_t userEventCallback,
                                               const char *serialNumber,
                                               const uint16_t bcdDeviceVersion,
-                                              const char *mtpRoot);
+                                              const char *mtpRoot,
+                                              bool mtpLockedAtInit);
 void composite_deinit(usb_device_composite_struct_t *composite);
 
 #if (defined(USB_DEVICE_CONFIG_CHARGER_DETECT) && (USB_DEVICE_CONFIG_CHARGER_DETECT > 0U)) &&                          \
