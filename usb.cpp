@@ -19,6 +19,7 @@ namespace bsp
 {
     namespace
     {
+        constexpr std::uint32_t maxRetriesNumber          = 100;
         usb_device_composite_struct_t *usbDeviceComposite = nullptr;
         xQueueHandle USBReceiveQueue;
         xQueueHandle USBIrqQueue;
@@ -174,16 +175,18 @@ namespace bsp
 
     int usbCDCSendRaw(const char *dataPtr, size_t dataLen)
     {
-        std::uint32_t dataSent = 0;
+        std::uint32_t dataSent     = 0;
+        std::uint32_t errorCounter = 0;
 
         do {
             const auto len = VirtualComSend(&usbDeviceComposite->cdcVcom, dataPtr + dataSent, dataLen - dataSent);
             if (len == 0) {
+                errorCounter++;
                 vTaskDelay(1 / portTICK_PERIOD_MS);
                 continue;
             }
             dataSent += len;
-        } while (dataSent < dataLen);
+        } while (dataSent < dataLen && errorCounter < maxRetriesNumber);
 
         return dataSent;
     }
