@@ -122,8 +122,10 @@ namespace bsp
 
     void usbUnlockMTP()
     {
+#if defined(USB_DEVICE_CONFIG_MTP) && (USB_DEVICE_CONFIG_MTP > 0U)
         log_debug("mtpUnlock");
         MtpUnlock(&usbDeviceComposite->mtpApp);
+#endif
     }
 
     ssize_t usbCDCReceive(void *buffer)

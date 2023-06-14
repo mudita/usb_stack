@@ -367,7 +367,9 @@ usb_device_composite_struct_t *composite_init(usb_event_callback_t userEventCall
                 &composite.cdcVcom, g_VComClassHandle, composite.userDefinedEventCallback, (void *)serialNumber) !=
             kStatus_USB_Success) {
             log_error("[Composite] VirtualCom initialization failed");
+#if defined(USB_DEVICE_CONFIG_MTP) && (USB_DEVICE_CONFIG_MTP > 0U)
             MtpDeinit(&composite.mtpApp);
+#endif
             goto error;
         }
     }
