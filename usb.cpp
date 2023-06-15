@@ -19,7 +19,6 @@ namespace bsp
 {
     namespace
     {
-        constexpr std::uint32_t maxRetriesNumber          = 100;
         usb_device_composite_struct_t *usbDeviceComposite = nullptr;
         xQueueHandle USBReceiveQueue;
         xQueueHandle USBIrqQueue;
@@ -147,7 +146,7 @@ namespace bsp
 #if USBCDC_ECHO_ENABLED
             bool usbCdcEchoEnabledPrev = usbCdcEchoEnabled;
 
-            auto usbEchoCmd = std::string_view{usbSerialBuffer, static_cast<size_t>(dataReceivedLength)};
+            auto usbEchoCmd = std::string_view{usbSerialBuffer, static_cast<std::size_t>(dataReceivedLength)};
 
             if ((dataReceivedLength == usbCDCEchoOnCmdLength) && (usbCDCEchoOnCmd == usbEchoCmd)) {
                 usbCdcEchoEnabled = true;
@@ -173,25 +172,33 @@ namespace bsp
         }
     }
 
-    int usbCDCSendRaw(const char *dataPtr, size_t dataLen)
+    std::size_t usbCDCSendRaw(const char *dataPtr, std::size_t dataLen)
     {
-        std::uint32_t dataSent     = 0;
-        std::uint32_t errorCounter = 0;
+        constexpr std::uint32_t maxRetryDelayMs = 10;
+        constexpr std::uint32_t maxRetriesCount = 250;
+        std::uint32_t retriesCounter = 0;
+        std::size_t dataSent = 0;
 
         do {
-            const auto len = VirtualComSend(&usbDeviceComposite->cdcVcom, dataPtr + dataSent, dataLen - dataSent);
-            if (len == 0) {
-                errorCounter++;
-                vTaskDelay(1 / portTICK_PERIOD_MS);
+            const auto bytesSent = VirtualComSend(&usbDeviceComposite->cdcVcom, &dataPtr[dataSent], dataLen - dataSent);
+            if (bytesSent < 0) {
+                log_error("VCOM already deinitialized!");
+                break;
+            }
+
+            if (bytesSent == 0) {
+                const auto retryDelayMs = (retriesCounter++ % maxRetryDelayMs) + 1;
+                log_error("VCOM failed to send data, retrying in %lums...", retryDelayMs);
+                vTaskDelay(retryDelayMs / portTICK_PERIOD_MS);
                 continue;
             }
-            dataSent += len;
-        } while (dataSent < dataLen && errorCounter < maxRetriesNumber);
+            dataSent += bytesSent;
+        } while ((dataSent < dataLen) && (retriesCounter < maxRetriesCount));
 
         return dataSent;
     }
 
-    int usbCDCSend(std::string *message)
+    std::size_t usbCDCSend(std::string *message)
     {
         return usbCDCSendRaw(message->c_str(), message->length());
     }
