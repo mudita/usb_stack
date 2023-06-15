@@ -60,7 +60,7 @@ typedef struct _usb_cdc_vcom_struct
     uint8_t startTransactions;    /* A flag to indicate whether a CDC device is ready to transmit and receive data. */
     uint8_t currentConfiguration; /* Current configuration value. */
 
-    size_t usb_buffer_size;
+    size_t usbBufferSize;
     StreamBufferHandle_t inputStream;
     StreamBufferHandle_t outputStream;
 
@@ -112,14 +112,14 @@ void VirtualComReset(usb_cdc_vcom_struct_t *cdcVcom, uint8_t speed);
  * @reutrn negative value on error (usb subsystem status code),
  *         number bytes enqueued to send
  */
-int VirtualComSend(usb_cdc_vcom_struct_t *cdcVcom, const void *data, size_t length);
+ssize_t VirtualComSend(usb_cdc_vcom_struct_t *cdcVcom, const void *data, size_t length);
 
 /**
  * @brief Pick received data from stream
  * @param Buffer where data would be copied from stream
  * @return length of data, 0 if data not available,
  */
-int VirtualComRecv(usb_cdc_vcom_struct_t *cdcVcom, void *data, size_t length);
+ssize_t VirtualComRecv(usb_cdc_vcom_struct_t *cdcVcom, void *data, size_t length);
 
 /*!
  * @brief Handles events comming from USB sub system
