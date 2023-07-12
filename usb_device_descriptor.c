@@ -404,14 +404,13 @@ usb_status_t USB_DeviceGetConfigurationDescriptor(
 usb_status_t USB_DeviceGetStringDescriptor(usb_device_handle handle,
                                            usb_device_get_string_descriptor_struct_t *stringDescriptor)
 {
-    uint16_t length = USB_StringDescriptor(USB_StringDescriptorBuffer, stringDescriptor->stringIndex);
-    if (length) {
+    const uint16_t length = USB_GetStringDescriptor(USB_StringDescriptorBuffer, stringDescriptor->stringIndex);
+    if (length > 0) {
         stringDescriptor->buffer = USB_StringDescriptorBuffer;
         stringDescriptor->length = length;
         return kStatus_USB_Success;
-    } else {
-        return kStatus_USB_Error;
     }
+    return kStatus_USB_Error;
 }
 
 /*!
@@ -609,7 +608,7 @@ usb_status_t USB_DeviceSetSpeed(usb_device_handle handle, uint8_t speed)
 
 uint16_t USB_DeviceSetSerialNumberString(const char *serialNumberAscii)
 {
-    return USB_DeviceSetStringDescriptor(USB_STRING_SERIAL_NUMBER, serialNumberAscii);
+    return USB_SetDescriptorString(serialNumberAscii, USB_STRING_SERIAL_NUMBER);
 }
 
 uint16_t USB_DeviceSetBcdVersion(usb_device_handle *handle, const uint16_t version)
