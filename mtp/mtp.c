@@ -36,14 +36,14 @@ USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE) static char mtpRootPat
 
 #define MTP_TASK_STACK_SIZE (3U * 1024U)
 
-static const char *DEVICE_STRING_VALUE[] = {USB_STRINGS(VALUE)};
-static mtp_device_info_t getDevice()
+static mtp_device_info_t getDevice(void)
 {
-    const int indexOffset    = 1;
-    mtp_device_info_t device = {.manufacturer = DEVICE_STRING_VALUE[USB_STRING_MANUFACTURER - indexOffset],
-                                .model        = DEVICE_STRING_VALUE[USB_STRING_PRODUCT - indexOffset],
-                                .version      = "1",
-                                .serial       = DEVICE_STRING_VALUE[USB_STRING_SERIAL_NUMBER - indexOffset]};
+    mtp_device_info_t device = {
+            .manufacturer = USB_GetDescriptorStringPtr(USB_STRING_MANUFACTURER),
+            .model        = USB_GetDescriptorStringPtr(USB_STRING_PRODUCT),
+            .version      = "1",
+            .serial       = USB_GetDescriptorStringPtr(USB_STRING_SERIAL_NUMBER)
+    };
     return device;
 }
 
