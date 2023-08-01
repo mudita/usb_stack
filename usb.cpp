@@ -23,7 +23,7 @@ namespace bsp
         xQueueHandle USBReceiveQueue;
         xQueueHandle USBIrqQueue;
 
-        char usbSerialBuffer[SERIAL_BUFFER_LEN];
+        char usbSerialBuffer[constants::serial::bufferLength];
 
 #if USBCDC_ECHO_ENABLED
         bool usbCdcEchoEnabled = false;
@@ -126,49 +126,57 @@ namespace bsp
         MtpUnlock(&usbDeviceComposite->mtpApp);
     }
 
-    int usbCDCReceive(void *buffer)
+    ssize_t usbCDCReceive(void *buffer)
     {
         if (usbDeviceComposite->cdcVcom.inputStream == nullptr) {
             return 0;
         }
 
-        memset(buffer, 0, SERIAL_BUFFER_LEN);
+        memset(buffer, 0, constants::serial::bufferLength);
 
-        return VirtualComRecv(&usbDeviceComposite->cdcVcom, buffer, SERIAL_BUFFER_LEN);
+        return VirtualComRecv(&usbDeviceComposite->cdcVcom, buffer, constants::serial::bufferLength);
     }
 
     void usbHandleDataReceived()
     {
-        const std::uint32_t dataReceivedLength = usbCDCReceive(&usbSerialBuffer);
-        if (dataReceivedLength > 0) {
-            log_debug("usbDeviceTask Received: %d signs", static_cast<int>(dataReceivedLength));
+        const auto dataReceivedLength = usbCDCReceive(&usbSerialBuffer);
+        if (dataReceivedLength == 0) {
+            log_error("No data received!");
+            return;
+        }
+
+        if (dataReceivedLength < 0) {
+            log_error("Error in usbCDCReceive, retcode %zd", dataReceivedLength);
+            return;
+        }
 
 #if USBCDC_ECHO_ENABLED
-            bool usbCdcEchoEnabledPrev = usbCdcEchoEnabled;
+        bool usbCdcEchoEnabledPrev = usbCdcEchoEnabled;
 
-            auto usbEchoCmd = std::string_view{usbSerialBuffer, static_cast<std::size_t>(dataReceivedLength)};
+        auto usbEchoCmd = std::string_view{usbSerialBuffer, static_cast<std::size_t>(dataReceivedLength)};
 
-            if ((dataReceivedLength == usbCDCEchoOnCmdLength) && (usbCDCEchoOnCmd == usbEchoCmd)) {
-                usbCdcEchoEnabled = true;
-            }
-            else if ((dataReceivedLength == usbCDCEchoOffCmdLength) && (usbCDCEchoOffCmd == usbEchoCmd)) {
-                usbCdcEchoEnabled = false;
-            }
+        if ((dataReceivedLength == usbCDCEchoOnCmdLength) && (usbCDCEchoOnCmd == usbEchoCmd)) {
+            usbCdcEchoEnabled = true;
+        }
+        else if ((dataReceivedLength == usbCDCEchoOffCmdLength) && (usbCDCEchoOffCmd == usbEchoCmd)) {
+            usbCdcEchoEnabled = false;
+        }
 
-            if (usbCdcEchoEnabled || usbCdcEchoEnabledPrev) {
-                usbCDCSendRaw(usbSerialBuffer, dataReceivedLength);
-                log_debug(
-                    "usbDeviceTask echoed: %d signs: [%s]", static_cast<int>(dataReceivedLength), usbSerialBuffer);
-                continue;
-            }
+        if (usbCdcEchoEnabled || usbCdcEchoEnabledPrev) {
+            usbCDCSendRaw(usbSerialBuffer, dataReceivedLength);
+            log_debug(
+                "usbDeviceTask echoed: %d signs: [%s]", static_cast<int>(dataReceivedLength), usbSerialBuffer);
+            continue;
+        }
 #endif
 
-            if (uxQueueSpacesAvailable(USBReceiveQueue) != 0) {
-                std::string *receiveMessage = new std::string(usbSerialBuffer, dataReceivedLength);
-                if (xQueueSend(USBReceiveQueue, &receiveMessage, portMAX_DELAY) == errQUEUE_FULL) {
-                    log_error("usbDeviceTask can't send data to receiveQueue");
-                }
-            }
+        if (uxQueueSpacesAvailable(USBReceiveQueue) == 0) {
+            log_error("USB receive queue is full!");
+        }
+
+        auto receiveMessage = new std::string(usbSerialBuffer, dataReceivedLength);
+        if (xQueueSend(USBReceiveQueue, &receiveMessage, portMAX_DELAY) == errQUEUE_FULL) {
+            log_error("usbDeviceTask can't send data to receiveQueue");
         }
     }
 
