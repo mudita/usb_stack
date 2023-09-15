@@ -41,7 +41,7 @@ namespace bsp
         }
 
         TimerHandle_t usbTick;
-        void usbUpdateTick(TimerHandle_t)
+        void usbUpdateTick([[maybe_unused]] TimerHandle_t timerHandle)
         {
 #if (defined(USB_DEVICE_CONFIG_CHARGER_DETECT) && (USB_DEVICE_CONFIG_CHARGER_DETECT > 0U)) &&                          \
     (defined(FSL_FEATURE_SOC_USB_ANALOG_COUNT) && (FSL_FEATURE_SOC_USB_ANALOG_COUNT > 0U))
@@ -72,16 +72,16 @@ namespace bsp
                 notification = USBDeviceStatus::DataReceived;
                 break;
             default:
-                break;
+                return;
             }
 
             if (0U != __get_IPSR()) {
                 BaseType_t shouldYield = 0;
-                xQueueSendFromISR(USBIrqQueue, &notification, &shouldYield);
+                xQueueOverwriteFromISR(USBIrqQueue, &notification, &shouldYield);
                 portYIELD_FROM_ISR(shouldYield);
             }
             else {
-                xQueueSend(USBIrqQueue, &notification, 500);
+                xQueueOverwrite(USBIrqQueue, &notification);
             }
         }
     } // namespace
