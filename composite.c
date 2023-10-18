@@ -13,6 +13,10 @@
 #include "usb_phy.h"
 #include "log.hpp"
 
+#ifndef UNUSED
+#define UNUSED(x) do { (void)(x); } while (0)
+#endif
+
 #if (defined(USB_DEVICE_CONFIG_CHARGER_DETECT) && (USB_DEVICE_CONFIG_CHARGER_DETECT > 0U)) &&                          \
     (defined(FSL_FEATURE_SOC_USB_ANALOG_COUNT) && (FSL_FEATURE_SOC_USB_ANALOG_COUNT > 0U))
 #include "usb_charger_detect.h"
@@ -335,7 +339,7 @@ usb_device_composite_struct_t *composite_init(usb_event_callback_t userEventCall
     composite.userDefinedEventCallback    = userEventCallback;
     composite.userDefinedEventCallbackArg = NULL; // not used
 
-    if (serialNumber && serialNumber[0]) {
+    if ((serialNumber != NULL) && (serialNumber[0] != '\0')) {
         USB_DeviceSetSerialNumberString(serialNumber);
     }
 
@@ -361,6 +365,8 @@ usb_device_composite_struct_t *composite_init(usb_event_callback_t userEventCall
             goto error;
         }
 #else
+        UNUSED(mtpRoot);
+        UNUSED(mtpLockedAtInit);
         g_VComClassHandle = g_CompositeClassConfig[0].classHandle;
 #endif
         if (VirtualComInit(
