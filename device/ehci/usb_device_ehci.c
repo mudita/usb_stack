@@ -1189,7 +1189,7 @@ usb_status_t USB_DeviceEhciInit(uint8_t controllerId,
                                 usb_device_controller_handle *ehciHandle)
 {
     usb_device_ehci_state_struct_t *ehciState;
-    uint32_t ehci_base[] = USBHS_BASE_ADDRS;
+    uint32_t ehci_base[] = USBHS_STACK_BASE_ADDRS;
     uint8_t intanceIndex;
 
 #if (defined(USB_DEVICE_CONFIG_CHARGER_DETECT) && (USB_DEVICE_CONFIG_CHARGER_DETECT > 0U)) && \
