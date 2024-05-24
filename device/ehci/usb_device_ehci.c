@@ -1188,8 +1188,12 @@ usb_status_t USB_DeviceEhciInit(uint8_t controllerId,
                                 usb_device_handle handle,
                                 usb_device_controller_handle *ehciHandle)
 {
+#if defined(USBHS_STACK_BASE_ADDRS)
+    uint32_t ehci_base[] = USBHS_STACK_BASE_ADDRS;
+#else
+    uint32_t ehci_base[] = USBHS_BASE_ADDRS; // Support legacy FSL used in Pure
+#endif
     usb_device_ehci_state_struct_t *ehciState;
-    uint32_t ehci_base[] = USBHS_BASE_ADDRS;
     uint8_t intanceIndex;
 
 #if (defined(USB_DEVICE_CONFIG_CHARGER_DETECT) && (USB_DEVICE_CONFIG_CHARGER_DETECT > 0U)) && \
