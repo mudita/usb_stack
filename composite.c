@@ -334,10 +334,10 @@ usb_device_composite_struct_t *composite_init(usb_event_callback_t userEventCall
 
     composite.speed                       = USB_SPEED_FULL;
     composite.attach                      = 0;
-    composite.cdcVcom.cdcAcmHandle        = (class_handle_t)NULL;
     composite.deviceHandle                = NULL;
     composite.userDefinedEventCallback    = userEventCallback;
     composite.userDefinedEventCallbackArg = NULL; // not used
+    memset(&composite.cdcVcom, 0, sizeof(composite.cdcVcom));
 
     if ((serialNumber != NULL) && (serialNumber[0] != '\0')) {
         USB_DeviceSetSerialNumberString(serialNumber);
