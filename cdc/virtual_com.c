@@ -23,8 +23,8 @@
 
 #define call_user_cb(handle, id)                                                                                       \
     do {                                                                                                               \
-        if ((handle)->userCb)                                                                                            \
-            (handle)->userCb((handle)->userCbArg, id);                                                                     \
+        if ((handle)->userCb)                                                                                          \
+            (handle)->userCb((handle)->userCbArg, id);                                                                 \
     } while (0)
 
 /* Define the information relates to abstract control model */
@@ -193,7 +193,6 @@ usb_status_t VirtualComUSBCallback(uint32_t event, void *param, void *userArg)
     switch (event) {
     case kUSB_DeviceCdcEventSendResponse:
         error = OnSendCompleted(cdcVcom, epCbParam);
-
         break;
     case kUSB_DeviceCdcEventRecvResponse:
         error = OnRecvCompleted(cdcVcom, epCbParam);
@@ -395,14 +394,21 @@ usb_status_t VirtualComInit(usb_cdc_vcom_struct_t *cdcVcom,
                             usb_event_callback_t callback,
                             void *userArg)
 {
+    if (cdcVcom == NULL) {
+        return kStatus_USB_InvalidParameter;
+    }
     cdcVcom->cdcAcmHandle = classHandle;
     cdcVcom->userCb       = callback;
     cdcVcom->userCbArg    = userArg;
 
-    if ((cdcVcom->inputStream = xStreamBufferCreate(VCOM_INPUT_STREAM_SIZE, 0)) == NULL) {
+    cdcVcom->inputStream = xStreamBufferCreate(VCOM_INPUT_STREAM_SIZE, 0);
+    if (cdcVcom->inputStream == NULL) {
         return kStatus_USB_AllocFail;
     }
-    if ((cdcVcom->outputStream = xStreamBufferCreate(VCOM_OUTPUT_STREAM_SIZE, 0)) == NULL) {
+
+    cdcVcom->outputStream = xStreamBufferCreate(VCOM_OUTPUT_STREAM_SIZE, 0);
+    if (cdcVcom->outputStream == NULL) {
+        vStreamBufferDelete(cdcVcom->inputStream);
         return kStatus_USB_AllocFail;
     }
     return kStatus_USB_Success;
@@ -410,30 +416,34 @@ usb_status_t VirtualComInit(usb_cdc_vcom_struct_t *cdcVcom,
 
 void VirtualComDeinit(usb_cdc_vcom_struct_t *cdcVcom)
 {
-    if (!cdcVcom || !cdcVcom->configured || !cdcVcom->inputStream) {
-        log_debug("[VCOM] Attempt to deinit not initialized virtual com");
+    if (cdcVcom == NULL) {
+        log_debug("[VCOM] CDC VCOM struct pointer is NULL!");
         return;
     }
 
-    vStreamBufferDelete(cdcVcom->inputStream);
-    vStreamBufferDelete(cdcVcom->outputStream);
-    cdcVcom->inputStream  = NULL;
-    cdcVcom->outputStream = NULL;
-    cdcVcom->configured   = false;
+    if (cdcVcom->inputStream != NULL) {
+        vStreamBufferDelete(cdcVcom->inputStream);
+        cdcVcom->inputStream  = NULL;
+    }
+    if (cdcVcom->outputStream != NULL) {
+        vStreamBufferDelete(cdcVcom->outputStream);
+        cdcVcom->outputStream = NULL;
+    }
+    cdcVcom->configured = false;
 
     log_debug("[VCOM] Deinitialized");
 }
 
 ssize_t VirtualComSend(usb_cdc_vcom_struct_t *cdcVcom, const void *data, size_t length)
 {
+    if ((cdcVcom == NULL) || !cdcVcom->configured || !cdcVcom->cdcAcmHandle || (length == 0)) {
+        return -EINVAL;
+    }
+
     const size_t endpointSize = cdcVcom->usbBufferSize;
     const uint8_t *payload = (const uint8_t *)data;
     usb_status_t status;
     size_t bytesSent;
-
-    if ((cdcVcom == NULL) || !cdcVcom->configured || !cdcVcom->cdcAcmHandle || (length == 0)) {
-        return -EINVAL;
-    }
 
     taskENTER_CRITICAL();
     const bool isBusy = USB_DeviceClassCdcAcmIsBusy(cdcVcom->cdcAcmHandle, USB_CDC_VCOM_DIC_BULK_IN_ENDPOINT);
@@ -463,13 +473,11 @@ ssize_t VirtualComSend(usb_cdc_vcom_struct_t *cdcVcom, const void *data, size_t 
 
 ssize_t VirtualComRecv(usb_cdc_vcom_struct_t *cdcVcom, void *data, size_t length)
 {
-    size_t bytesReceived;
-
     if ((cdcVcom == NULL) || !cdcVcom->configured || !cdcVcom->cdcAcmHandle || (length == 0)) {
         return -EINVAL;
     }
 
-    bytesReceived = xStreamBufferReceive(cdcVcom->inputStream, data, length, 0);
+    const size_t bytesReceived = xStreamBufferReceive(cdcVcom->inputStream, data, length, 0);
 
     // don't care about error code. If pipe is busy, then it will rescheduled in ISR
     taskENTER_CRITICAL();

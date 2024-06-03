@@ -31,7 +31,8 @@
 /*! @brief The maximum value of control type maximum packet size for HS in USB specification 2.0 */
 #define USB_DEVICE_MAX_HS_CONTROL_MAX_PACKET_SIZE (64U)
 
-#define USB_DEVICE_MAX_TRANSFER_PRIME_TIMES (10000000U)  /* The max prime times of EPPRIME, if still doesn't take effect, means status has been reset*/
+/*! @brief The max prime times of EPPRIME, if still doesn't take effect, means status has been reset */
+#define USB_DEVICE_MAX_TRANSFER_PRIME_TIMES (1000000U)
 
 /* Device QH */
 #define USB_DEVICE_EHCI_QH_POINTER_MASK (0xFFFFFFC0U)

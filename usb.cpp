@@ -13,7 +13,7 @@ extern "C"
 #include "usb_phy.h"
 }
 
-#include <string>
+#include <cstring>
 
 namespace bsp
 {
@@ -31,17 +31,16 @@ namespace bsp
         constexpr std::string_view usbCDCEchoOnCmd("UsbCdcEcho=ON");
         constexpr std::string_view usbCDCEchoOffCmd("UsbCdcEcho=OFF");
 
-        constexpr inline auto usbCDCEchoOnCmdLength  = usbCDCEchoOnCmd.length();
-        constexpr inline auto usbCDCEchoOffCmdLength = usbCDCEchoOffCmd.length();
+        constexpr auto usbCDCEchoOnCmdLength  = usbCDCEchoOnCmd.length();
+        constexpr auto usbCDCEchoOffCmdLength = usbCDCEchoOffCmd.length();
 #endif
 
-        void clearUSBSerialBuffer()
-        {
-            memset(usbSerialBuffer, 0, sizeof(usbSerialBuffer));
-        }
+        TimerHandle_t usbTickTimer;
+        constexpr auto usbTickTimerName = "usbHWTick";
+        constexpr auto usbTickTimerInterval = pdMS_TO_TICKS(10);
+        constexpr auto usbTickTimerCommandTimeout = 500;
 
-        TimerHandle_t usbTick;
-        void usbUpdateTick([[maybe_unused]] TimerHandle_t timerHandle)
+        void usbOnTickTimer([[maybe_unused]] TimerHandle_t timerHandle)
         {
 #if (defined(USB_DEVICE_CONFIG_CHARGER_DETECT) && (USB_DEVICE_CONFIG_CHARGER_DETECT > 0U)) &&                          \
     (defined(FSL_FEATURE_SOC_USB_ANALOG_COUNT) && (FSL_FEATURE_SOC_USB_ANALOG_COUNT > 0U))
@@ -88,13 +87,15 @@ namespace bsp
 
     int usbInit(const bsp::usbInitParams &initParams)
     {
-        if (initParams.queueHandle == nullptr or initParams.irqQueueHandle == nullptr) {
+        if ((initParams.queueHandle == nullptr) || (initParams.irqQueueHandle == nullptr)) {
             log_error("Invalid argument(s): 0x%p/0x%p", initParams.queueHandle, initParams.irqQueueHandle);
-            return -1;
+            return -EINVAL;
         }
 
-        clearUSBSerialBuffer();
-        usbTick = xTimerCreate("usbHWTick", pdMS_TO_TICKS(10), pdTRUE, nullptr, usbUpdateTick);
+        usbTickTimer = xTimerCreate(usbTickTimerName, usbTickTimerInterval, pdTRUE, nullptr, usbOnTickTimer);
+        if (usbTickTimer == nullptr) {
+            return -ENOMEM;
+        }
 
         USBReceiveQueue = initParams.queueHandle;
         USBIrqQueue     = initParams.irqQueueHandle;
@@ -106,16 +107,20 @@ namespace bsp
                 initParams.rootPath.c_str(),
                 initParams.mtpLockedAtInit
         );
+        if (usbDeviceComposite == nullptr) {
+            xTimerDelete(usbTickTimer, usbTickTimerCommandTimeout);
+            return -ENOMEM;
+        }
 
-        xTimerStart(usbTick, 500);
-        return (usbDeviceComposite == NULL) ? -1 : 0;
+        xTimerStart(usbTickTimer, usbTickTimerCommandTimeout);
+        return 0;
     }
 
     void usbDeinit()
     {
         log_debug("usbDeinit");
-        xTimerStop(usbTick, 500);
-        xTimerDelete(usbTick, 500);
+        xTimerStop(usbTickTimer, usbTickTimerCommandTimeout);
+        xTimerDelete(usbTickTimer, usbTickTimerCommandTimeout);
 
         composite_deinit(usbDeviceComposite);
     }
@@ -134,7 +139,7 @@ namespace bsp
             return 0;
         }
 
-        memset(buffer, 0, constants::serial::bufferLength);
+        std::memset(buffer, 0, constants::serial::bufferLength);
 
         return VirtualComRecv(&usbDeviceComposite->cdcVcom, buffer, constants::serial::bufferLength);
     }
