@@ -266,6 +266,19 @@ extern usb_status_t USB_DeviceCdcAcmRecv(class_handle_t handle, uint8_t ep, uint
  * @param ep The endpoint number
  * @retval FALSE(0) no transfer scheduled
  * @retval TRUE(1) transfer is pending or in progress
+ *
+ * @warning The returned value is the most recent snapshot of an unguarded
+ *          @c uint8_t isBusy field that is mutated by the endpoint
+ *          callbacks (OnSendCompleted / OnRecvCompleted). It is only
+ *          meaningful when the caller serialises itself with those
+ *          callbacks:
+ *            - USB_DEVICE_CONFIG_USE_TASK == 0: callbacks run in the
+ *              EHCI ISR. Wrap the IsBusy-then-act sequence with
+ *              taskENTER_CRITICAL / taskEXIT_CRITICAL.
+ *            - USB_DEVICE_CONFIG_USE_TASK == 1: callbacks run in the
+ *              dedicated USB device task. Hold a mutex shared with
+ *              that task (see usb_cdc_vcom_struct_t::txMutex).
+ *          Calling this API without such guard is a data race.
  */
 extern int USB_DeviceClassCdcAcmIsBusy(class_handle_t handle, uint8_t ep);
 

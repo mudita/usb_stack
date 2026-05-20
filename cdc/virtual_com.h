@@ -11,6 +11,7 @@
 #include "device/usb_device_class.h"
 #include "usb_device_descriptor.h"
 #include "events.h"
+#include "semphr.h"
 
 /* Currently configured line coding */
 #define LINE_CODING_DTERATE    (115200)
@@ -63,6 +64,14 @@ typedef struct _usb_cdc_vcom_struct
     size_t usbBufferSize;
     StreamBufferHandle_t inputStream;
     StreamBufferHandle_t outputStream;
+
+    /* Serialises VirtualComSend with the OnSendCompleted endpoint
+     * callback so that the (USB_DeviceClassCdcAcmIsBusy, drain,
+     * USB_DeviceCdcAcmSend) sequence is atomic with respect to the
+     * USB device task. Unused (NULL) when USB_DEVICE_CONFIG_USE_TASK==0
+     * because callbacks then run in ISR context and taskENTER_CRITICAL
+     * in the caller already masks them out. */
+    SemaphoreHandle_t txMutex;
 
     usb_event_callback_t userCb;
     void *userCbArg;

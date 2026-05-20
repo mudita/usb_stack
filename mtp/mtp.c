@@ -16,6 +16,7 @@
 #include "mtp_responder.h"
 #include "mtp_fs.h"
 #include "log.hpp"
+#include "mudita_mtp_buffers.h"
 
 #define UNUSED(x) do { (void)(x); } while (0)
 
@@ -35,6 +36,16 @@ USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE) static uint8_t mtp_res
 USB_GLOBAL USB_RAM_ADDRESS_ALIGNMENT(USB_DATA_ALIGN_SIZE) static char mtpRootPath[256];
 
 #define MTP_TASK_STACK_SIZE (3U * 1024U)
+
+/* MTP processing pipeline (poll_new_data -> mtp_responder_handle_request
+ * -> Send) does file I/O and shapes USB throughput. Run above the
+ * default sys::ServicePriority::Idle so it is not starved by Idle-level
+ * services (ServiceDB, ServiceDesktop worker, etc.) during large
+ * transfers. Stays well below sys::ServicePriority::High (3) used by
+ * SystemWatchdog. */
+#ifndef MTP_TASK_PRIORITY
+#define MTP_TASK_PRIORITY (tskIDLE_PRIORITY + 2U)
+#endif
 
 static mtp_device_info_t getDevice(void)
 {
@@ -143,7 +154,7 @@ static usb_status_t OnConfigurationComplete(usb_mtp_struct_t *mtpApp, void *para
     UNUSED(param);
 
     mtpApp->configured = true;
-    xSemaphoreGiveFromISR(mtpApp->configuring, NULL);
+    mudita_mtp_sem_give(mtpApp->configuring);
     return kStatus_USB_Success;
 }
 
@@ -156,7 +167,7 @@ static usb_status_t OnIncomingFrame(usb_mtp_struct_t *mtpApp, void *param)
             log_debug("[MTP] Rx notification from controller: 0x%x - configured", (unsigned int)epCbParam->length);
         }
         else if (epCbParam->length > 0) {
-            if (xMessageBufferSendFromISR(mtpApp->inputBox, epCbParam->buffer, epCbParam->length, NULL) !=
+            if (mudita_mtp_msg_send(mtpApp->inputBox, epCbParam->buffer, epCbParam->length) !=
                 epCbParam->length) {
                 log_debug("[MTP] RX dropped incoming bytes: %u", (unsigned int)epCbParam->length);
             }
@@ -184,7 +195,7 @@ static usb_status_t OnOutgoingFrameSent(usb_mtp_struct_t *mtpApp, void *param)
             log_error("[MTP] output stream buffer is NULL!");
             return kStatus_USB_Error;
         }
-        size_t length = xMessageBufferReceiveFromISR(mtpApp->outputBox, tx_buffer, sizeof(tx_buffer), NULL);
+        size_t length = mudita_mtp_msg_recv(mtpApp->outputBox, tx_buffer, sizeof(tx_buffer));
         if (length && USB_DeviceClassMtpSend(mtpApp->classHandle, USB_MTP_BULK_IN_ENDPOINT, tx_buffer, length) !=
                           kStatus_USB_Success) {
             log_debug("[MTP] Dropped outgoing bytes: 0x%X:", (int)length);
@@ -264,6 +275,14 @@ static void send_response(usb_mtp_struct_t *mtpApp, uint16_t status)
 static void poll_new_data(usb_mtp_struct_t *mtpApp, size_t *request_len)
 {
     do {
+        /* RescheduleRecv inspects USB_DeviceClassMtpIsBusy and may call
+         * USB_DeviceClassMtpRecv, which mutates endpoint state. With
+         * USE_TASK==0 OnIncomingFrame fires from ISR and could observe
+         * a half-updated state; taskENTER_CRITICAL masks the USB IRQ.
+         * With USE_TASK==1 OnIncomingFrame runs in the USB device task.
+         * MTP task priority (Idle+2) preempts USB device task (Idle),
+         * so taskENTER_CRITICAL here suspends the scheduler and blocks
+         * OnIncomingFrame from re-entering RescheduleRecv concurrently. */
         taskENTER_CRITICAL();
         RescheduleRecv(mtpApp);
         taskEXIT_CRITICAL();
@@ -415,12 +434,12 @@ usb_status_t MtpInit(usb_mtp_struct_t *mtpApp, class_handle_t classHandle, const
 
     strncpy(mtpRootPath, mtpRoot, sizeof(mtpRootPath));
 
-    if (xTaskCreate(MtpTask,                                      /* pointer to the task */
-                    "MTP task",                                   /* task name for kernel awareness debugging */
-                    MTP_TASK_STACK_SIZE / sizeof(portSTACK_TYPE), /* task stack size */
-                    mtpApp,                                       /* optional task startup argument */
-                    tskIDLE_PRIORITY,                             /* initial priority */
-                    &mtpApp->mtp_task_handle                      /* optional task handle to create */
+    if (xTaskCreate(MtpTask,
+                    "mtp",
+                    MTP_TASK_STACK_SIZE / sizeof(portSTACK_TYPE),
+                    mtpApp,
+                    MTP_TASK_PRIORITY,
+                    &mtpApp->mtp_task_handle
                     ) != pdPASS) {
         log_debug("[MTP] Create task failed");
         return kStatus_USB_AllocFail;
@@ -452,7 +471,7 @@ void MtpDeinit(usb_mtp_struct_t *mtpApp)
     vSemaphoreDelete(mtpApp->configuring);
     mtpApp->responder   = NULL;
     mtpApp->outputBox   = NULL;
-    mtpApp->outputBox   = NULL;
+    mtpApp->inputBox    = NULL;
     mtpApp->join        = NULL;
     mtpApp->configuring = NULL;
     mtpRootPath[0]      = '\0';

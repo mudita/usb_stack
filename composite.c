@@ -178,6 +178,20 @@ void USB_DeviceTaskFn(void *deviceHandle)
 #endif
 
 #if defined(USB_DEVICE_CONFIG_USE_TASK) && (USB_DEVICE_CONFIG_USE_TASK > 0U)
+/* Per MuditaOS convention all sys::Service tasks run at
+ * sys::ServicePriority::Idle (= tskIDLE_PRIORITY). The USB device task
+ * cooperates with WorkerDesktop via FreeRTOS time slicing; raising
+ * priority here would starve WorkerDesktop and other system services.
+ * Stack: 4 KiB - USB_DeviceNotification invokes class callbacks (CDC,
+ * MTP) which themselves call log_debug/sprintf and stream-buffer APIs,
+ * 3 KiB is on the edge under USB_ENABLE_LOGS=ON. */
+#ifndef USB_DEVICE_TASK_PRIORITY
+#define USB_DEVICE_TASK_PRIORITY (tskIDLE_PRIORITY)
+#endif
+#ifndef USB_DEVICE_TASK_STACK_SIZE
+#define USB_DEVICE_TASK_STACK_SIZE (4U * 1024U)
+#endif
+
 void USB_DeviceTask(void *handle)
 {
     while (1U) {
@@ -381,12 +395,12 @@ usb_device_composite_struct_t *composite_init(usb_event_callback_t userEventCall
     }
 
 #if defined(USB_DEVICE_CONFIG_USE_TASK) && (USB_DEVICE_CONFIG_USE_TASK > 0U)
-    if (xTaskCreate(USB_DeviceTask,                  /* pointer to the task */
-                    (char const *)"usb device task", /* task name for kernel awareness debugging */
-                    3072L / sizeof(portSTACK_TYPE),  /* task stack size */
-                    composite.deviceHandle,          /* optional task startup argument */
-                    tskIDLE_PRIORITY,                /* initial priority */
-                    &composite.device_task_handle    /* optional task handle to create */
+    if (xTaskCreate(USB_DeviceTask,
+                    "usb_device",
+                    USB_DEVICE_TASK_STACK_SIZE / sizeof(portSTACK_TYPE),
+                    composite.deviceHandle,
+                    USB_DEVICE_TASK_PRIORITY,
+                    &composite.device_task_handle
                     ) != pdPASS) {
         log_error("[Composite] Failed to create usb device task!");
         return NULL;
@@ -411,15 +425,29 @@ void composite_deinit(usb_device_composite_struct_t *instance)
         return;
     }
 
-#if defined(USB_DEVICE_CONFIG_USE_TASK) && (USB_DEVICE_CONFIG_USE_TASK > 0U)
-    vTaskDelete(composite->device_task_handle);
-#endif
+    /* Deinit order matters:
+     * 1. Disable NVIC IRQ first - no new notifications can be pushed to either
+     *    the OSA message queue (USB_DEVICE_CONFIG_USE_TASK==1) or directly to
+     *    the endpoint callbacks (USB_DEVICE_CONFIG_USE_TASK==0).
+     * 2. Tell the controller to stop (drains pending DTDs).
+     * 3. Kill the dedicated USB device task - safe now, the producer (ISR) is
+     *    gone, so the task will never receive another notification.
+     * 4. Deinit classes - their stream / message buffers are not touched
+     *    anymore by anyone, so vStreamBufferDelete() is safe.
+     */
+    USB_DeviceSetIsr(false);
 
     usb_status_t err;
     if ((err = USB_DeviceStop(instance->deviceHandle)) != kStatus_USB_Success) {
         log_error("[Composite] Device stop failed: 0x%x", err);
     }
-    USB_DeviceSetIsr(false);
+
+#if defined(USB_DEVICE_CONFIG_USE_TASK) && (USB_DEVICE_CONFIG_USE_TASK > 0U)
+    if (instance->device_task_handle != NULL) {
+        vTaskDelete(instance->device_task_handle);
+        instance->device_task_handle = NULL;
+    }
+#endif
 
 #if defined(USB_DEVICE_CONFIG_MTP) && (USB_DEVICE_CONFIG_MTP > 0U)
     MtpDeinit(&instance->mtpApp);
