@@ -277,7 +277,7 @@ extern usb_status_t USB_DeviceCdcAcmRecv(class_handle_t handle, uint8_t ep, uint
  *              taskENTER_CRITICAL / taskEXIT_CRITICAL.
  *            - USB_DEVICE_CONFIG_USE_TASK == 1: callbacks run in the
  *              dedicated USB device task. Hold a mutex shared with
- *              that task (see usb_cdc_vcom_struct_t::txMutex).
+ *              that task (see usb_cdc_vcom_struct_t::serialMutex).
  *          Calling this API without such guard is a data race.
  */
 extern int USB_DeviceClassCdcAcmIsBusy(class_handle_t handle, uint8_t ep);
