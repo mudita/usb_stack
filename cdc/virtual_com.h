@@ -11,6 +11,7 @@
 #include "device/usb_device_class.h"
 #include "usb_device_descriptor.h"
 #include "events.h"
+#include "semphr.h"
 
 /* Currently configured line coding */
 #define LINE_CODING_DTERATE    (115200)
@@ -63,6 +64,15 @@ typedef struct _usb_cdc_vcom_struct
     size_t usbBufferSize;
     StreamBufferHandle_t inputStream;
     StreamBufferHandle_t outputStream;
+
+    /* Serialises VirtualComSend/VirtualComRecv with the OnSendCompleted/
+     * OnRecvCompleted endpoint callbacks so that the (IsBusy, drain/
+     * reschedule, Submit) sequences are atomic with respect to the USB
+     * device task. Each path takes and gives the mutex independently
+     * using a try-lock/bail pattern (timeout 0 in callbacks). Unused
+     * (NULL) when USB_DEVICE_CONFIG_USE_TASK==0 because callbacks then
+     * run in ISR context and taskENTER_CRITICAL in the caller masks them. */
+    SemaphoreHandle_t serialMutex;
 
     usb_event_callback_t userCb;
     void *userCbArg;

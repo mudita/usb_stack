@@ -55,6 +55,19 @@ extern usb_status_t USB_DeviceClassMtpDeinit(class_handle_t handle);
 extern usb_status_t USB_DeviceClassMtpEvent(void *handle, uint32_t event, void *param);
 extern usb_status_t USB_DeviceClassMtpSend(class_handle_t handle, uint8_t ep, uint8_t *buffer, uint32_t length);
 extern usb_status_t USB_DeviceClassMtpRecv(class_handle_t handle, uint8_t ep, uint8_t *buffer, uint32_t length);
+
+/*
+ * @warning Returns an unguarded snapshot of an internal @c uint8_t
+ *          busy flag mutated by MTP endpoint callbacks. The caller
+ *          must serialise the IsBusy-then-act sequence against those
+ *          callbacks:
+ *            - USB_DEVICE_CONFIG_USE_TASK == 0: callbacks run in EHCI
+ *              ISR - guard with taskENTER_CRITICAL.
+ *            - USB_DEVICE_CONFIG_USE_TASK == 1: callbacks run in the
+ *              USB device task - suspend the scheduler (e.g.
+ *              taskENTER_CRITICAL) or rely on task priority ordering.
+ *          Unguarded use is a data race.
+ */
 extern int USB_DeviceClassMtpIsBusy(class_handle_t handle, uint8_t ep);
 
 #if defined(__cplusplus)

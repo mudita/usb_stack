@@ -12,6 +12,7 @@
 #include "composite.h"
 
 #include "log.hpp"
+#include "mudita_vcom_buffers.h"
 #include <errno.h>
 
 #if (VCOM_INPUT_STREAM_SIZE < HS_CDC_VCOM_BULK_IN_PACKET_SIZE) ||                                                      \
@@ -106,28 +107,44 @@ static usb_status_t OnSendCompleted(usb_cdc_vcom_struct_t *cdcVcom,
         return kStatus_USB_InvalidHandle;
     }
 
-    if (cdcVcom->configured) {
-        to_send = xStreamBufferReceiveFromISR(cdcVcom->outputStream, s_currSendBuf, sizeof(s_currSendBuf), 0);
-
-        if (to_send) {
-            if ((error = USB_DeviceCdcAcmSend(
-                     cdcVcom->cdcAcmHandle, USB_CDC_VCOM_DIC_BULK_IN_ENDPOINT, s_currSendBuf, to_send))) {
-                log_debug("[VCOM] Error: dropped %u sending bytes", to_send);
-                call_user_cb(cdcVcom, USB_EVENT_ERROR_TX_BUFFER_OVERFLOW);
-            }
-        }
-        else {
-            if (param->length > 0) {
-                error = USB_DeviceCdcAcmSend(cdcVcom->cdcAcmHandle, USB_CDC_VCOM_DIC_BULK_IN_ENDPOINT, NULL, 0);
-            }
-        }
-    }
-    else {
+    if (!cdcVcom->configured) {
         /* EHCI controller has mechanism to notify about endpoint de-init. In
          * this case class is not configured and message length is 0xFFFFFFFF */
         log_debug("[VCOM] Tx notification from controller: 0x%x", (unsigned int)param->length);
         call_user_cb(cdcVcom, USB_EVENT_WARNING_NOT_CONFIGURED);
+        return kStatus_USB_Success;
     }
+
+#if (defined(USB_DEVICE_CONFIG_USE_TASK) && (USB_DEVICE_CONFIG_USE_TASK > 0U))
+    /* Cooperate with VirtualComSend: if it is currently priming the
+     * endpoint with a fresh transfer, let it finish; the next call to
+     * OnSendCompleted (triggered by that very transfer) will drain
+     * the rest of outputStream. Timeout 0 - never block the USB task. */
+    if (cdcVcom->serialMutex != NULL && xSemaphoreTake(cdcVcom->serialMutex, 0) != pdTRUE) {
+        return kStatus_USB_Success;
+    }
+#endif
+
+    to_send = mudita_vcom_stream_recv(cdcVcom->outputStream, s_currSendBuf, sizeof(s_currSendBuf));
+
+    if (to_send) {
+        if ((error = USB_DeviceCdcAcmSend(
+                 cdcVcom->cdcAcmHandle, USB_CDC_VCOM_DIC_BULK_IN_ENDPOINT, s_currSendBuf, to_send))) {
+            log_debug("[VCOM] Error: dropped %u sending bytes", to_send);
+            call_user_cb(cdcVcom, USB_EVENT_ERROR_TX_BUFFER_OVERFLOW);
+        }
+    }
+    else {
+        if (param->length > 0) {
+            error = USB_DeviceCdcAcmSend(cdcVcom->cdcAcmHandle, USB_CDC_VCOM_DIC_BULK_IN_ENDPOINT, NULL, 0);
+        }
+    }
+
+#if (defined(USB_DEVICE_CONFIG_USE_TASK) && (USB_DEVICE_CONFIG_USE_TASK > 0U))
+    if (cdcVcom->serialMutex != NULL) {
+        xSemaphoreGive(cdcVcom->serialMutex);
+    }
+#endif
 
     return error;
 }
@@ -141,11 +158,20 @@ static usb_status_t OnRecvCompleted(usb_cdc_vcom_struct_t *cdcVcom,
         return kStatus_USB_InvalidHandle;
     }
 
+#if (defined(USB_DEVICE_CONFIG_USE_TASK) && (USB_DEVICE_CONFIG_USE_TASK > 0U))
+    /* Cooperate with VirtualComRecv: if it is currently checking IsBusy
+     * and rescheduling the endpoint, let it finish. Timeout 0 - never
+     * block the USB task. */
+    if (cdcVcom->serialMutex != NULL && xSemaphoreTake(cdcVcom->serialMutex, 0) != pdTRUE) {
+        return kStatus_USB_Success;
+    }
+#endif
+
     if (cdcVcom->configured) {
         if (cdcVcom->startTransactions) {
             if (param->length) {
                 size_t length = 0;
-                length        = xStreamBufferSendFromISR(cdcVcom->inputStream, param->buffer, param->length, NULL);
+                length        = mudita_vcom_stream_send(cdcVcom->inputStream, param->buffer, param->length);
                 if (length < param->length) {
                     log_debug("[VCOM] Error: dropped %lu received bytes", param->length - length);
                     call_user_cb(cdcVcom, USB_EVENT_ERROR_RX_BUFFER_OVERFLOW);
@@ -171,6 +197,13 @@ static usb_status_t OnRecvCompleted(usb_cdc_vcom_struct_t *cdcVcom,
         log_debug("[VCOM] Rx notification from controller: 0x%x", (unsigned int)param->length);
         call_user_cb(cdcVcom, USB_EVENT_WARNING_NOT_CONFIGURED);
     }
+
+#if (defined(USB_DEVICE_CONFIG_USE_TASK) && (USB_DEVICE_CONFIG_USE_TASK > 0U))
+    if (cdcVcom->serialMutex != NULL) {
+        xSemaphoreGive(cdcVcom->serialMutex);
+    }
+#endif
+
     return error;
 }
 
@@ -340,7 +373,9 @@ void VirtualComDetached(usb_cdc_vcom_struct_t *cdcVcom)
     log_debug("[VCOM] Info: detached");
     cdcVcom->configured = false;
 
-    xStreamBufferReceiveFromISR(cdcVcom->outputStream, s_currSendBuf, sizeof(s_currSendBuf), 0);
+    /* Drain any leftover bytes; called from the USB callback path so
+     * context-neutral wrapper is required. */
+    mudita_vcom_stream_recv(cdcVcom->outputStream, s_currSendBuf, sizeof(s_currSendBuf));
 }
 
 void VirtualComReset(usb_cdc_vcom_struct_t *cdcVcom, uint8_t speed)
@@ -354,7 +389,7 @@ void VirtualComReset(usb_cdc_vcom_struct_t *cdcVcom, uint8_t speed)
     else {
         cdcVcom->usbBufferSize = HS_CDC_VCOM_BULK_OUT_PACKET_SIZE;
     }
-    xStreamBufferReceiveFromISR(cdcVcom->outputStream, s_currSendBuf, sizeof(s_currSendBuf), 0);
+    mudita_vcom_stream_recv(cdcVcom->outputStream, s_currSendBuf, sizeof(s_currSendBuf));
 }
 
 /*!
@@ -400,6 +435,7 @@ usb_status_t VirtualComInit(usb_cdc_vcom_struct_t *cdcVcom,
     cdcVcom->cdcAcmHandle = classHandle;
     cdcVcom->userCb       = callback;
     cdcVcom->userCbArg    = userArg;
+    cdcVcom->serialMutex      = NULL;
 
     cdcVcom->inputStream = xStreamBufferCreate(VCOM_INPUT_STREAM_SIZE, 0);
     if (cdcVcom->inputStream == NULL) {
@@ -409,8 +445,23 @@ usb_status_t VirtualComInit(usb_cdc_vcom_struct_t *cdcVcom,
     cdcVcom->outputStream = xStreamBufferCreate(VCOM_OUTPUT_STREAM_SIZE, 0);
     if (cdcVcom->outputStream == NULL) {
         vStreamBufferDelete(cdcVcom->inputStream);
+        cdcVcom->inputStream = NULL;
         return kStatus_USB_AllocFail;
     }
+
+#if (defined(USB_DEVICE_CONFIG_USE_TASK) && (USB_DEVICE_CONFIG_USE_TASK > 0U))
+    /* Only required when class endpoint callbacks execute outside ISR
+     * context; with USE_TASK==0 the caller of VirtualComSend masks the
+     * USB IRQ with taskENTER_CRITICAL which is sufficient. */
+    cdcVcom->serialMutex = xSemaphoreCreateMutex();
+    if (cdcVcom->serialMutex == NULL) {
+        vStreamBufferDelete(cdcVcom->outputStream);
+        vStreamBufferDelete(cdcVcom->inputStream);
+        cdcVcom->outputStream = NULL;
+        cdcVcom->inputStream  = NULL;
+        return kStatus_USB_AllocFail;
+    }
+#endif
     return kStatus_USB_Success;
 }
 
@@ -429,6 +480,10 @@ void VirtualComDeinit(usb_cdc_vcom_struct_t *cdcVcom)
         vStreamBufferDelete(cdcVcom->outputStream);
         cdcVcom->outputStream = NULL;
     }
+    if (cdcVcom->serialMutex != NULL) {
+        vSemaphoreDelete(cdcVcom->serialMutex);
+        cdcVcom->serialMutex = NULL;
+    }
     cdcVcom->configured = false;
 
     log_debug("[VCOM] Deinitialized");
@@ -443,9 +498,25 @@ ssize_t VirtualComSend(usb_cdc_vcom_struct_t *cdcVcom, const void *data, size_t 
     const size_t endpointSize = cdcVcom->usbBufferSize;
     const uint8_t *payload = (const uint8_t *)data;
     usb_status_t status;
-    size_t bytesSent;
+    size_t bytesSent = 0;
 
+    /* Critical section (IsBusy -> prime / enqueue) must be atomic
+     * w.r.t. OnSendCompleted. With USE_TASK==0 OnSendCompleted runs
+     * in the USB ISR; masking it via taskENTER_CRITICAL is correct
+     * because USB_DEVICE_INTERRUPT_PRIORITY (3) is <= configMAX_SYSCALL.
+     * With USE_TASK==1 OnSendCompleted runs in the USB device task;
+     * a mutex is the only correct synchronisation primitive. */
+#if (defined(USB_DEVICE_CONFIG_USE_TASK) && (USB_DEVICE_CONFIG_USE_TASK > 0U))
+    if (cdcVcom->serialMutex == NULL) {
+        return -EINVAL;
+    }
+    if (xSemaphoreTake(cdcVcom->serialMutex, portMAX_DELAY) != pdTRUE) {
+        return -EINVAL;
+    }
+#else
     taskENTER_CRITICAL();
+#endif
+
     const bool isBusy = USB_DeviceClassCdcAcmIsBusy(cdcVcom->cdcAcmHandle, USB_CDC_VCOM_DIC_BULK_IN_ENDPOINT);
 
     if (isBusy) {
@@ -466,7 +537,12 @@ ssize_t VirtualComSend(usb_cdc_vcom_struct_t *cdcVcom, const void *data, size_t 
             bytesSent = 0;
         }
     }
+
+#if (defined(USB_DEVICE_CONFIG_USE_TASK) && (USB_DEVICE_CONFIG_USE_TASK > 0U))
+    xSemaphoreGive(cdcVcom->serialMutex);
+#else
     taskEXIT_CRITICAL();
+#endif
 
     return bytesSent;
 }
@@ -479,13 +555,28 @@ ssize_t VirtualComRecv(usb_cdc_vcom_struct_t *cdcVcom, void *data, size_t length
 
     const size_t bytesReceived = xStreamBufferReceive(cdcVcom->inputStream, data, length, 0);
 
-    // don't care about error code. If pipe is busy, then it will rescheduled in ISR
+    /* Same rationale as VirtualComSend: keep IsBusy + RescheduleRecv
+     * atomic against OnRecvCompleted. */
+#if (defined(USB_DEVICE_CONFIG_USE_TASK) && (USB_DEVICE_CONFIG_USE_TASK > 0U))
+    if (cdcVcom->serialMutex != NULL) {
+        (void)xSemaphoreTake(cdcVcom->serialMutex, portMAX_DELAY);
+    }
+#else
     taskENTER_CRITICAL();
+#endif
+
     const bool isBusy = USB_DeviceClassCdcAcmIsBusy(cdcVcom->cdcAcmHandle, USB_CDC_VCOM_DIC_BULK_OUT_ENDPOINT);
     if (cdcVcom->configured && !isBusy) {
         RescheduleRecv(cdcVcom);
     }
+
+#if (defined(USB_DEVICE_CONFIG_USE_TASK) && (USB_DEVICE_CONFIG_USE_TASK > 0U))
+    if (cdcVcom->serialMutex != NULL) {
+        xSemaphoreGive(cdcVcom->serialMutex);
+    }
+#else
     taskEXIT_CRITICAL();
+#endif
 
     return bytesReceived;
 }
